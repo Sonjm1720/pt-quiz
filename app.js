@@ -41,6 +41,9 @@ function ask(text,buttons){ return new Promise(res=>modal(text,buttons.map(([t,c
 function loading(msg){ $('loading-t').textContent=msg; show('s-loading'); }
 
 /* ---------- 출제 ---------- */
+const ORD={"기초|해부생리":0,"기초|운동학":1,"기초|물리적 인자치료":2,"기초|공중보건":3,"진단평가|진단평가 원리":0,"진단평가|검사와 평가":1,"진단평가|임상의사결정":2,"진단평가|물리치료 문제해결(진단평가)":3,"중재|근골격계 중재":0,"중재|신경계 중재":1,"중재|심폐혈관계 중재":2,"중재|피부계 중재":3,"중재|물리치료 문제해결(중재)":4,"법규|의료법":0,"법규|의료기사 등에 관한 법률":1,"법규|장애인복지법":2,"법규|노인복지법":3,"법규|국민건강보험법":4,"기초|해부생리|인체의 구분과 조직":0,"기초|해부생리|뼈대계통":1,"기초|해부생리|관절계통":2,"기초|해부생리|근육계통":3,"기초|해부생리|호흡계통":4,"기초|해부생리|순환계통":5,"기초|해부생리|피부계통 및 특수감각계통":6,"기초|해부생리|소화계통":7,"기초|해부생리|비뇨계통 및 내분비계통":8,"기초|해부생리|신경계통":9,"기초|운동학|운동학 원리":0,"기초|운동학|어깨, 팔":1,"기초|운동학|골반, 다리":2,"기초|운동학|머리, 척주, 가슴우리":3,"기초|운동학|걷기, 달리기":4,"기초|물리적 인자치료|전기치료의 기초":0,"기초|물리적 인자치료|전기진단의 원리":1,"기초|물리적 인자치료|전기치료의 적용 원리":2,"기초|물리적 인자치료|기계적 자극 치료의 적용 원리":3,"기초|물리적 인자치료|광선치료의 기초":4,"기초|물리적 인자치료|광선치료의 적용 원리":5,"기초|물리적 인자치료|수치료와 수중운동의 기초":6,"기초|물리적 인자치료|온열과 한랭치료의 기초":7,"기초|물리적 인자치료|수치료와 수중운동의 적용 원리":8,"기초|물리적 인자치료|보조기":9,"기초|물리적 인자치료|의지":10,"기초|물리적 인자치료|보조도구와 로봇을 이용한 기립, 보행, 이동":11,"기초|공중보건|역학과 감염병":0,"기초|공중보건|공중보건 총론":1,"기초|공중보건|환경보건":2,"기초|공중보건|보건관리 및 보건사업":3,"진단평가|진단평가 원리|진단평가 검사원리":0,"진단평가|진단평가 원리|측정 및 평가":1,"진단평가|검사와 평가|근골격계 검사 및 평가":0,"진단평가|검사와 평가|신경계 검사 및 평가":1,"진단평가|검사와 평가|심폐혈관계 검사 및 평가":2,"진단평가|검사와 평가|피부계 검사 및 평가":3,"진단평가|검사와 평가|난치성·대사성 질환 검사 및 평가":4,"진단평가|임상의사결정|물리치료 기록":0,"진단평가|임상의사결정|근거중심 물리치료":1,"진단평가|임상의사결정|물리치료 의사결정":2,"진단평가|임상의사결정|물리치료 윤리":3,"진단평가|물리치료 문제해결(진단평가)|근골격계 및 신경계 진단평가 문제해결":0,"중재|근골격계 중재|근골격계 질환":0,"중재|근골격계 중재|근골격계 운동치료":1,"중재|근골격계 중재|근골격계 물리적 인자치료":2,"중재|근골격계 중재|근골격계 예방관리":3,"중재|신경계 중재|신경계 질환 및 관리":0,"중재|신경계 중재|신경계 운동치료":1,"중재|신경계 중재|신경계 물리적 인자치료":2,"중재|심폐혈관계 중재|호흡기계 질환":0,"중재|심폐혈관계 중재|심혈관계 질환":1,"중재|심폐혈관계 중재|심폐혈관계 물리치료":2,"중재|피부계 중재|피부계 물리치료":0,"중재|피부계 중재|피부계 손상 및 질환":1,"중재|물리치료 문제해결(중재)|근골격계 및 신경계 문제해결":0,"법규|의료법|총칙":0,"법규|의료법|의료기관":1,"법규|의료법|의료인":2,"법규|의료기사 등에 관한 법률|목적, 정의, 의료기사의 종류 및 업무, 업무 범위와 한계":0,"법규|의료기사 등에 관한 법률|자격과 면허":1,"법규|의료기사 등에 관한 법률|벌칙":2,"법규|장애인복지법|총칙":0,"법규|장애인복지법|복지 조치":1,"법규|장애인복지법|복지시설과 단체":2,"법규|노인복지법|총칙":0,"법규|노인복지법|보건·복지조치":1,"법규|노인복지법|노인복지시설의 설치·운영":2,"법규|국민건강보험법|총칙":0};
+function ordF(s,f){const v=ORD[s+'|'+f]; return v===undefined?99:v;}
+function ordA(s,f,x){const v=ORD[s+'|'+f+'|'+x]; return v===undefined?99:v;}
 function randRound(means,total){
   const s=means.reduce((a,b)=>a+b,0); if(s<=0||total<=0) return means.map(()=>0);
   const sc=means.map(m=>m*total/s), fl=sc.map(Math.floor); let rem=total-fl.reduce((a,b)=>a+b,0);
@@ -64,13 +67,14 @@ function pickSubject(subj,total){
     let ac=randRound(ar.map(r=>r.mean),fc[i]);
     let over=0; ac=ac.map((c,j)=>{const p=poolOf(subj,f,ar[j].area).length; if(c>p){over+=c-p;return p;}return c;});
     while(over>0){ const j=ac.findIndex((c,jj)=>c<poolOf(subj,f,ar[jj].area).length); if(j<0) break; ac[j]++; over--; }
-    ar.forEach((r,j)=>{ out.push(...shuffle(poolOf(subj,f,r.area)).slice(0,ac[j]).map(q=>q.id)); });
+    ar.forEach((r,j)=>{ out.push({fo:ordF(subj,f),ao:ordA(subj,f,r.area),ids:shuffle(poolOf(subj,f,r.area)).slice(0,ac[j]).map(q=>q.id)}); });
   });
-  return out;
+  out.sort((x,y)=>x.fo-y.fo||x.ao-y.ao);
+  return out.reduce((acc,p)=>acc.concat(p.ids),[]);
 }
 function buildExam(period){
   const P=PERIODS[period]; let ids=[];
-  P.subs.forEach(s=>{ ids=ids.concat(shuffle(pickSubject(s,P.counts[s]))); });
+  P.subs.forEach(s=>{ ids=ids.concat(pickSubject(s,P.counts[s])); });
   return {period:period,qids:ids,ans:{},flag:{},idx:0,remaining:P.min*60000,total:P.min*60000,alerts:{a5:false,a1:false},startedAt:nowIso(),paused:false};
 }
 
@@ -111,12 +115,14 @@ addEventListener('online',()=>{ if(sid) retryPending(); });
 
 /* ---------- 문제 데이터 ---------- */
 function setQ(data){ Q=data.items; QUOTA=data.quota; byId={}; Q.forEach(q=>byId[q.id]=q); Object.keys(poolCache).forEach(k=>delete poolCache[k]); }
+let qErr='';
 async function ensureQuestions(){
-  let meta=null, offline=false;
-  try{ meta=await T(DB.getMeta()); }catch(e){ offline=true; }
+  let meta=null, offline=false; qErr='';
+  try{ meta=await T(DB.getMeta(),20000); }catch(e){ offline=true; qErr='문제 정보 읽기 실패: '+((e&&(e.code||e.message))||e); }
   const cache=lsGet('ptq2:q');
   if(cache&&(offline||(meta&&cache.version===meta.version))){ setQ(cache); return true; }
-  if(meta){ try{ const data=await T(DB.getQuestions(),20000); if(data&&data.items&&data.items.length){ lsSet('ptq2:q',data); setQ(data); return true; } }catch(e){} }
+  if(!meta&&!offline) qErr='서버에 문제 데이터가 아직 없습니다(관리자 화면에서 올려 주세요).';
+  if(meta){ try{ const data=await T(DB.getQuestions(),40000); if(data&&data.items&&data.items.length){ lsSet('ptq2:q',data); setQ(data); qErr=''; return true; } qErr='문제 데이터가 비어 있습니다.'; }catch(e){ qErr='문제 읽기 실패: '+((e&&(e.code||e.message))||e); } }
   if(cache){ setQ(cache); return true; }
   return false;
 }
@@ -164,7 +170,7 @@ async function logout(){ try{ await DB.signOut(); }catch(e){} sid=null; U=null; 
 function curQ(){return byId[E.qids[E.idx]];}
 function renderQ(){
   const q=curQ(), n=E.idx+1;
-  $('qtitle').innerHTML=E.period+'교시 · '+q.subj+' · <b>'+n+'번</b> / '+E.qids.length+(q.subj==='법규'?'<span class="tag">기출 당시 기준</span>':'');
+  $('qtitle').innerHTML=E.period+'교시 · '+q.subj+' · <b>'+n+'번</b> / '+E.qids.length+'<span class="src">기출 '+esc(q.id)+'</span>'+(q.subj==='법규'?'<span class="tag">기출 당시 기준</span>':'');
   const sel=E.ans[q.id];
   let h='<div class="stem">'+stemHtml(q.stem)+'</div>';
   q.opts.forEach((o,i)=>{ h+='<div class="opt'+(sel===i?' sel':'')+'" data-i="'+i+'"><span class="n">'+'①②③④⑤'[i]+'</span><span>'+esc(o)+'</span></div>'; });
@@ -242,7 +248,7 @@ async function submitExam(auto){
     const m=ex.ans[id]; if(m===q.ans){subj[q.subj].c++; c++;} else wrong.push({q:id,m:m===undefined?-1:m}); });
   let next=U.nextNo;
   try{ const r=await T(DB.getUser(sid),4000); next=Math.max(next,(r&&r.nextNo)||1); }catch(e){}
-  const rec={no:next,period:ex.period,at:nowIso(),auto:!!auto,used:ex.total-Math.max(0,ex.remaining),subj,correct:c,total:ex.qids.length,wrong,pending:true};
+  const rec={no:next,period:ex.period,at:nowIso(),auto:!!auto,used:ex.total-Math.max(0,ex.remaining),subj,correct:c,total:ex.qids.length,wrong,qs:ex.qids.slice(),pending:true};
   U.nextNo=next+1; U.records.push(rec); U.exam=null; U.examAt=nowIso(); saveLocal();
   showResult(rec,true);
   T(DB.putRecord(sid,clean(Object.assign({},rec,{pending:undefined}))))
@@ -256,7 +262,7 @@ function qCard(q,mines,opts){
   const cnt=opts.count||0, rep=cnt>=2;
   let h='<div class="wq'+(rep?' rep':'')+'"><div class="meta">';
   if(rep) h+='<span class="badge">'+cnt+'번 틀림</span>';
-  h+='<span>'+esc(q.id)+'</span><span>'+q.subj+' · '+esc(q.field)+' · '+esc(q.area)+'</span><span class="pg">개념정리본 '+pgLabel(q)+'</span>'+(q.subj==='법규'?'<span>기출 당시 기준</span>':'')+'</div>';
+  h+='<span class="src">기출 '+esc(q.id)+'</span><span>'+q.subj+' · '+esc(q.field)+' · '+esc(q.area)+'</span><span class="pg">개념정리본 '+pgLabel(q)+'</span>'+(q.subj==='법규'?'<span>기출 당시 기준</span>':'')+'</div>';
   h+='<div class="st">'+stemHtml(q.stem)+'</div>';
   const mineSet=new Set(mines.filter(x=>x.m>=0).map(x=>x.m));
   q.opts.forEach((o,i)=>{ h+='<div class="wo'+(i===q.ans?' right':'')+(mineSet.has(i)?' mine':'')+'">'+'①②③④⑤'[i]+' '+esc(o)+(i===q.ans?'  ← 정답':'')+(mineSet.has(i)&&i!==q.ans?'  ← 내 답':'')+'</div>'; });
@@ -323,9 +329,47 @@ async function deleteRecord(no){
   if(!r.pending){ try{ await T(DB.delRecord(sid,no)); }catch(e){ modal('서버에 연결할 수 없어 삭제하지 못했습니다.\n인터넷에 연결한 뒤 다시 시도해 주세요.',[['확인','']]); return; } }
   U.records=U.records.filter(x=>x.no!==no); saveLocal(); if(wrongFilter===no) wrongFilter='all'; renderRecords();
 }
+
+/* ---------- 분야·영역 정답률 ---------- */
+let accOpen={};
+function recStats(r){
+  const m={}, wr={}; r.wrong.forEach(w=>{wr[w.q]=1;});
+  (r.qs||[]).forEach(id=>{ const q=byId[id]; if(!q) return; const ok=!wr[id];
+    [q.subj, q.subj+'|'+q.field, q.subj+'|'+q.field+'|'+q.area].forEach(k=>{ const v=m[k]=m[k]||{c:0,t:0}; v.t++; if(ok) v.c++; }); });
+  return m;
+}
+function accCell(v){ return v&&v.t? '<b>'+pct(v.c,v.t)+'%</b><div class="note">'+v.c+'/'+v.t+'</div>' : '-'; }
+function accPanel(cols,hasOld){
+  /* cols: [{name, st}] 마지막 열은 전체 평균 */
+  const keys={}; cols.forEach(c=>Object.keys(c.st).forEach(k=>{keys[k]=1;}));
+  const subs=['기초','진단평가','중재','법규'].filter(s=>keys[s]);
+  let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-weight:800;font-size:calc(var(--u)*2.3);margin-bottom:calc(var(--u)*.6)">분야·영역별 정답률</div>';
+  if(hasOld) h+='<div class="note" style="margin-bottom:calc(var(--u)*.8)">출제 목록이 저장되기 전의 옛 기록은 이 표에 포함되지 않습니다.</div>';
+  if(!subs.length) return h+'<div class="sub">집계할 수 있는 회차가 아직 없습니다. 새로 푼 회차부터 표시됩니다.</div></div>';
+  h+='<div class="accwrap"><table class="acc"><tr><th class="sn">분야 · 영역 <button class="sec acc-all" id="acc-all">모두 펼치기/접기</button></th>'+cols.map(c=>'<th>'+c.name+'</th>').join('')+'</tr>';
+  const fieldsOf=s=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|')&&k.split('|').length===2).map(k=>k.split('|')[1]))].sort((x,y)=>ordF(s,x)-ordF(s,y));
+  const areasOf=(s,f)=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|'+f+'|')).map(k=>k.split('|')[2]))].sort((x,y)=>ordA(s,f,x)-ordA(s,f,y));
+  subs.forEach(s=>{
+    h+='<tr class="rs"><td class="sn">'+s+'</td>'+cols.map(c=>'<td>'+accCell(c.st[s])+'</td>').join('')+'</tr>';
+    fieldsOf(s).forEach(f=>{ const fk=s+'|'+f, open=!!accOpen[fk];
+      h+='<tr class="rf" data-k="'+esc(fk)+'"><td class="sn">'+(open?'▾ ':'▸ ')+esc(f)+'</td>'+cols.map(c=>'<td>'+accCell(c.st[fk])+'</td>').join('')+'</tr>';
+      if(open) areasOf(s,f).forEach(x=>{ const ak=fk+'|'+x; h+='<tr class="ra"><td class="sn">'+esc(x)+'</td>'+cols.map(c=>'<td>'+accCell(c.st[ak])+'</td>').join('')+'</tr>'; });
+    });
+  });
+  return h+'</table></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
+}
+function accFor(filter){
+  const all=U.records.filter(r=>r.qs&&r.qs.length), hasOld=U.records.some(r=>!(r.qs&&r.qs.length));
+  const tot={}; all.forEach(r=>{ const s=recStats(r); Object.keys(s).forEach(k=>{ const v=tot[k]=tot[k]||{c:0,t:0}; v.c+=s[k].c; v.t+=s[k].t; }); });
+  let cols;
+  if(filter==='all') cols=all.map(r=>({name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)})).concat([{name:'전체 평균',st:tot}]);
+  else { const r=U.records.find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push({name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)}); cols.push({name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
+  return accPanel(cols,hasOld&&filter==='all');
+}
 function renderWrong(){
   const R=U.records, cnts=wrongCounts(), body=$('rec-body');
   let h='<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+r.no+'회차·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
+  h+=accFor(wrongFilter);
   if(wrongFilter==='all'){
     const ids=Object.keys(cnts).filter(i=>byId[i]).sort((a,b)=>cnts[b].length-cnts[a].length||Q.indexOf(byId[a])-Q.indexOf(byId[b]));
     const rep=ids.filter(i=>cnts[i].length>=2).length;
@@ -341,6 +385,8 @@ function renderWrong(){
   }
   body.innerHTML=h; body.scrollTop=0;
   $('wb-back').onclick=()=>{recView='main'; renderRecords();};
+  body.querySelectorAll('tr.rf').forEach(tr=>{ tr.onclick=()=>{ const k=tr.dataset.k; accOpen[k]=!accOpen[k]; const st=body.scrollTop; renderWrong(); body.scrollTop=st; }; });
+  const aa=$('acc-all'); if(aa) aa.onclick=()=>{ const ks=[...body.querySelectorAll('tr.rf')].map(t=>t.dataset.k); const anyClosed=ks.some(k=>!accOpen[k]); ks.forEach(k=>accOpen[k]=anyClosed); const st=body.scrollTop; renderWrong(); body.scrollTop=st; };
 }
 
 /* ---------- 비밀번호 변경 ---------- */
@@ -365,9 +411,16 @@ $('adm-up').onclick=()=>{ const f=$('adm-file').files[0]; if(!f){ adminLog('문�
       if(!data.items||!data.quota||!data.version||data.items.length<1) throw new Error('파일 형식이 올바르지 않습니다.');
       adminLog('올리는 중… ('+data.items.length+'문항)');
       await T(DB.adminWriteQuestions(data),60000);
-      lsSet('ptq2:q',null); adminLog('올리기 완료: '+data.items.length+'문항, 버전 '+data.version+'\n사이트를 새로고침하면 새 문제가 적용됩니다.');
+      lsSet('ptq2:q',null); adminLog('올리기 완료: '+data.items.length+'문항. 서버에서 다시 불러오는 중…');
+      const ok=await ensureQuestions();
+      adminLog(ok?('올리기 완료: '+data.items.length+'문항, 버전 '+data.version+'\n서버에서 읽기 확인까지 성공했습니다. 홈으로 가면 모의 시험을 쓸 수 있습니다.'):('올리기는 끝났지만 다시 읽지 못했습니다.\n'+qErr));
     }catch(e){ adminLog('올리지 못했습니다: '+(e&&(e.code||e.message)||e)); }
   }; rd.readAsText(f,'utf-8'); };
+$('adm-chk').onclick=async()=>{
+  adminLog('서버 확인 중…'); let m='';
+  try{ const meta=await T(DB.getMeta(),20000); m='문제 정보: '+(meta?JSON.stringify(meta):'없음'); }catch(e){ m='문제 정보 읽기 오류: '+((e&&(e.code||e.message))||e); }
+  adminLog(m+'\n이 기기에 불러온 문제: '+Q.length+'문항'+(qErr?'\n마지막 오류: '+qErr:''));
+};
 $('adm-exp').onclick=async()=>{
   adminLog('모든 학생 기록을 불러오는 중…');
   try{ const all=await T(DB.adminExportAll(),60000); const txt=JSON.stringify(all,null,1); $('adm-out').value=txt;
@@ -384,7 +437,7 @@ function showHome(){
   E=null; show('s-home'); $('home-id').textContent='학번 '+sid;
   $('h-admin').style.display=(sid===ADMIN)?'inline-block':'none';
   const noQ=!Q.length; $('h-exam').disabled=noQ; $('h-rec').disabled=noQ;
-  $('home-note').textContent=noQ?'문제 데이터가 아직 없습니다. 관리자 화면에서 올려 주세요.':(syncOK?'':'서버에 연결되지 않아 이 기기에만 저장 중입니다. 연결되면 자동으로 올라갑니다.');
+  $('home-note').textContent=noQ?('문제 데이터를 불러오지 못했습니다. '+(qErr?'['+qErr+']':'')):(syncOK?'':'서버에 연결되지 않아 이 기기에만 저장 중입니다. 연결되면 자동으로 올라갑니다.');
   const ex=U&&U.exam; $('home-resume').style.display=ex?'block':'none';
   if(ex) $('home-resume-t').textContent='진행 중인 시험: '+ex.period+'교시 · 남은 시간 '+fmtTime(ex.remaining)+' · 푼 문제 '+Object.keys(ex.ans).length+'/'+ex.qids.length;
   retryPending();
@@ -408,7 +461,7 @@ $('resume-drop').onclick=()=>modal('진행 중인 시험을 포기할까요?\n�
 async function makeFirebaseDB(cfg){
   const base='https://www.gstatic.com/firebasejs/10.14.1/';
   const [A,Au,F]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);
-  const app=A.initializeApp(cfg), auth=Au.getAuth(app), fs=F.getFirestore(app);
+  const app=A.initializeApp(cfg), auth=Au.getAuth(app), fs=F.initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
   const email=s=>s+'@'+DOMAIN;
   const SUBJ=['기초','진단평가','중재','법규'];
   const firstUser=new Promise(res=>{ const un=Au.onAuthStateChanged(auth,u=>{un(); res(u);}); });
