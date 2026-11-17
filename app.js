@@ -238,8 +238,8 @@ $('sel-grid').addEventListener('click',ev=>{ const b=ev.target.closest('.nb'); i
 
 function confirmSubmit(){
   if(E.paused) return;
-  const un=E.qids.filter(id=>E.ans[id]===undefined).length, fl=E.qids.filter(id=>E.flag[id]).length;
-  modal('제출할까요?\n안 푼 문제 '+un+'개'+(fl?' · 다시 확인 표시 '+fl+'개':''),[['돌아가기','sec'],['제출','ok',()=>submitExam(false)]]);
+  const fl=E.qids.filter(id=>E.flag[id]).length;
+  modal(fl?'다시 확인 문제가 '+fl+'문제 있습니다.\n제출하시겠습니까?':'제출하시겠습니까?',[['아니오','sec'],['예','ok',()=>submitExam(false)]]);
 }
 async function submitExam(auto){
   if(!E) return; const ex=E; E=null; $('ov-sel').classList.remove('on'); $('ov-pause').classList.remove('on'); $('modal').classList.remove('on');
@@ -248,7 +248,7 @@ async function submitExam(auto){
     const m=ex.ans[id]; if(m===q.ans){subj[q.subj].c++; c++;} else wrong.push({q:id,m:m===undefined?-1:m}); });
   let next=U.nextNo;
   try{ const r=await T(DB.getUser(sid),4000); next=Math.max(next,(r&&r.nextNo)||1); }catch(e){}
-  const rec={no:next,period:ex.period,at:nowIso(),auto:!!auto,used:ex.total-Math.max(0,ex.remaining),subj,correct:c,total:ex.qids.length,wrong,qs:ex.qids.slice(),pending:true};
+  const rec={no:next,period:ex.period,at:nowIso(),auto:!!auto,used:ex.total-Math.max(0,ex.remaining),subj,correct:c,total:ex.qids.length,wrong,qs:ex.qids.slice(),fl:ex.qids.filter(id=>ex.flag&&ex.flag[id]),pending:true};
   U.nextNo=next+1; U.records.push(rec); U.exam=null; U.examAt=nowIso(); saveLocal();
   showResult(rec,true);
   T(DB.putRecord(sid,clean(Object.assign({},rec,{pending:undefined}))))
@@ -258,15 +258,19 @@ async function submitExam(auto){
 
 /* ---------- 틀린 문제 표시 ---------- */
 function wrongCounts(){ const m={}; U.records.forEach(r=>r.wrong.forEach(w=>{(m[w.q]=m[w.q]||[]).push(r.no);})); return m; }
-function qCard(q,mines,opts){
-  const cnt=opts.count||0, rep=cnt>=2;
+function qCard(q,es,opts){
+  opts=opts||{}; const cnt=opts.count||0, rep=cnt>=2, one=es.length===1?es[0]:null;
   let h='<div class="wq'+(rep?' rep':'')+'"><div class="meta">';
+  if(opts.num) h+='<b>'+opts.num+'번</b>';
+  if(one) h+=one.ok?'<span class="badge ok">정답</span>':'<span class="badge bad">'+(one.m<0?'선택 없음':'오답')+'</span>';
   if(rep) h+='<span class="badge">'+cnt+'번 틀림</span>';
+  const nf=es.filter(e=>e.fl).length; if(nf) h+='<span class="badge fl">다시 확인'+(es.length>1&&nf>1?' '+nf+'번':'')+'</span>';
   h+='<span class="src">기출 '+esc(q.id)+'</span><span>'+q.subj+' · '+esc(q.field)+' · '+esc(q.area)+'</span><span class="pg">개념정리본 '+pgLabel(q)+'</span>'+(q.subj==='법규'?'<span>기출 당시 기준</span>':'')+'</div>';
   h+='<div class="st">'+stemHtml(q.stem)+'</div>';
-  const mineSet=new Set(mines.filter(x=>x.m>=0).map(x=>x.m));
-  q.opts.forEach((o,i)=>{ h+='<div class="wo'+(i===q.ans?' right':'')+(mineSet.has(i)?' mine':'')+'">'+'①②③④⑤'[i]+' '+esc(o)+(i===q.ans?'  ← 정답':'')+(mineSet.has(i)&&i!==q.ans?'  ← 내 답':'')+'</div>'; });
-  if(opts.showWhich) h+='<div class="small" style="margin-top:calc(var(--u)*.8)">'+mines.map(x=>x.no+'회차: '+(x.m<0?'미응답':'①②③④⑤'[x.m])).join(' · ')+'</div>';
+  const mine=new Set(es.filter(e=>!e.ok&&e.m>=0).map(e=>e.m));
+  q.opts.forEach((o,i)=>{ h+='<div class="wo'+(i===q.ans?' right':'')+(mine.has(i)?' mine':'')+'">'+'①②③④⑤'[i]+' '+esc(o)+(i===q.ans?'  ← 정답':'')+(mine.has(i)&&i!==q.ans?'  ← 내 답':'')+'</div>'; });
+  if(one&&!one.ok&&one.m<0) h+='<div class="small nosel">선택한 선지 없음</div>';
+  if(opts.showWhich) h+='<div class="small" style="margin-top:calc(var(--u)*.8)">'+es.map(x=>x.no+'회차: '+(x.ok?'정답':(x.m<0?'선택한 선지 없음':'①②③④⑤'[x.m]+' 오답'))+(x.fl?' · 다시 확인':'')).join(' · ')+'</div>';
   return h+'</div>';
 }
 
@@ -276,22 +280,43 @@ function subjTable(rows){
   rows.forEach(([s,v])=>{ h+='<tr><td class="sn">'+s+(s==='법규'?'<div class="note">기출 당시 기준</div>':'')+'</td><td>'+(v.t?v.c+' / '+v.t:'-')+'</td><td>'+(v.t?pct(v.c,v.t)+'%':'-')+'</td><td>'+chip(v.c,v.t)+'</td></tr>'; });
   return h+'</table>';
 }
+let resRec=null, resMode='all';
 function showResult(rec,justDone){
-  show('s-result');
+  resRec=rec; resMode='all'; show('s-result');
   $('res-title').textContent=rec.no+'회차 · '+rec.period+'교시 결과'+(rec.auto?' (시간 종료로 자동 제출)':'');
   const b=$('res-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
   if(justDone&&rec.period===1) add('2교시 시작','ok',()=>startNew(2));
   if(justDone) { add('기록','sec',()=>showRecords()); add('홈','sec',()=>showHome()); }
   else add('기록으로','sec',()=>showRecords());
-  const rows=PERIODS[rec.period].subs.map(s=>[s,rec.subj[s]||{c:0,t:0}]);
-  const cnts=wrongCounts();
-  let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-size:calc(var(--u)*2.4);font-weight:800;margin-bottom:calc(var(--u)*1)">점수 '+rec.correct+' / '+rec.total+' ('+pct(rec.correct,rec.total)+'%)</div>'+subjTable(rows)+'<div class="note" style="margin-top:calc(var(--u)*.8)">판정: 40% 미만 과락 · 60% 이하 주의 · 80% 이하 안정권 · 80% 초과 짱이야 (과목별)</div></div>';
-  h+='<div class="sechd">틀린 문제 · 미응답 '+rec.wrong.length+'개</div>';
-  if(!rec.wrong.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
-  rec.wrong.forEach(w=>{ if(byId[w.q]) h+=qCard(byId[w.q],[{no:rec.no,m:w.m}],{count:(cnts[w.q]||[]).length}); });
-  $('res-body').innerHTML=h; $('res-body').scrollTop=0;
+  renderResultBody(); $('res-body').scrollTop=0;
 }
+function renderResultBody(){
+  const rec=resRec, rows=PERIODS[rec.period].subs.map(s=>[s,rec.subj[s]||{c:0,t:0}]);
+  const es=recMap(rec), hasAll=!!(rec.qs&&rec.qs.length), cnts=wrongCounts();
+  let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-size:calc(var(--u)*2.4);font-weight:800;margin-bottom:calc(var(--u)*1)">점수 '+rec.correct+' / '+rec.total+' ('+pct(rec.correct,rec.total)+'%)</div>'+subjTable(rows)+'<div class="note" style="margin-top:calc(var(--u)*.8)">판정: 40% 미만 과락 · 60% 이하 주의 · 80% 이하 안정권 · 80% 초과 짱이야 (과목별)</div></div>';
+  const nW=es.filter(e=>!e.ok).length, nF=es.filter(e=>e.fl).length;
+  if(hasAll){
+    h+='<div class="sechd">문제별 결과 · 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
+    h+='<div class="rgrid">'+es.map((e,i)=>'<button class="nb '+(e.ok?'a':'u')+(e.fl?' f':'')+'" data-j="'+i+'">'+(i+1)+'</button>').join('')+'</div>';
+    const mb=(k,t)=>'<button data-rm="'+k+'" class="'+(resMode===k?'on':'')+'">'+t+'</button>';
+    h+='<div class="chips">'+mb('all','전체 '+es.length)+mb('wrong','틀린 것만 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
+    const list=es.filter(e=>resMode==='all'||(resMode==='wrong'&&!e.ok)||(resMode==='flag'&&e.fl));
+    if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
+    list.forEach(e=>{ h+='<div id="rc-'+e.i+'">'+qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length,num:e.i+1})+'</div>'; });
+  } else {
+    h+='<div class="sechd">틀린 문제 · 선택 없음 포함 '+rec.wrong.length+'개</div>';
+    h+='<div class="note" style="margin-bottom:calc(var(--u)*1)">이 회차는 출제 목록이 저장되기 전 기록이라 틀린 문제만 볼 수 있습니다.</div>';
+    if(!rec.wrong.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
+    es.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
+  }
+  $('res-body').innerHTML=h;
+}
+$('res-body').addEventListener('click',ev=>{
+  const body=$('res-body'), rm=ev.target.closest('[data-rm]'), nb=ev.target.closest('.rgrid .nb');
+  if(rm){ resMode=rm.dataset.rm; const st=body.scrollTop; renderResultBody(); body.scrollTop=st; return; }
+  if(nb){ const j=nb.dataset.j; let el=document.getElementById('rc-'+j); if(!el){ resMode='all'; renderResultBody(); el=document.getElementById('rc-'+j); } if(el) el.scrollIntoView({block:'start'}); }
+});
 
 /* ---------- 기록 ---------- */
 let recView='main', wrongFilter='all';
@@ -300,7 +325,7 @@ function showRecords(){
   $('rec-title').textContent='기록 · '+sid;
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';renderRecords();}); add('홈','sec',showHome);
+  add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add('홈','sec',showHome);
   renderRecords();
 }
 function renderRecords(){
@@ -322,7 +347,7 @@ $('rec-body').addEventListener('click',ev=>{
   const v=ev.target.closest('[data-v]'), d=ev.target.closest('[data-d]'), f=ev.target.closest('[data-f]');
   if(v){ const r=U.records.find(x=>x.no==v.dataset.v); showResult(r,false); }
   if(d){ const no=+d.dataset.d; modal(no+'회차 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.',[['취소','sec'],['삭제','warn',()=>deleteRecord(no)]]); }
-  if(f){ wrongFilter=f.dataset.f==='all'?'all':+f.dataset.f; renderWrong(); }
+  if(f){ wrongFilter=f.dataset.f==='all'?'all':+f.dataset.f; cellState=null; renderWrong(); }
 });
 async function deleteRecord(no){
   const r=U.records.find(x=>x.no===no); if(!r) return;
@@ -331,7 +356,12 @@ async function deleteRecord(no){
 }
 
 /* ---------- 분야·영역 정답률 ---------- */
-let accOpen={};
+let accOpen={}, cellState=null, accScroll=0, wrongMode='all';
+function recMap(r){
+  const wr={}; r.wrong.forEach(w=>{wr[w.q]=w.m;}); const fl=new Set(r.fl||[]);
+  const ids=(r.qs&&r.qs.length)?r.qs:r.wrong.map(w=>w.q);
+  return ids.filter(id=>byId[id]).map((id,i)=>{ const bad=Object.prototype.hasOwnProperty.call(wr,id); return {id:id,i:i,no:r.no,m:bad?wr[id]:byId[id].ans,ok:!bad,fl:fl.has(id)}; });
+}
 function recStats(r){
   const m={}, wr={}; r.wrong.forEach(w=>{wr[w.q]=1;});
   (r.qs||[]).forEach(id=>{ const q=byId[id]; if(!q) return; const ok=!wr[id];
@@ -339,21 +369,22 @@ function recStats(r){
   return m;
 }
 function accCell(v){ return v&&v.t? '<b>'+pct(v.c,v.t)+'%</b><div class="note">'+v.c+'/'+v.t+'</div>' : '-'; }
+function vcell(c,k){ const v=c.st[k]; return v&&v.t? '<td class="v" data-c="'+c.id+'" data-k="'+esc(k)+'">'+accCell(v)+'</td>' : '<td>-</td>'; }
 function accPanel(cols,hasOld){
-  /* cols: [{name, st}] 마지막 열은 전체 평균 */
   const keys={}; cols.forEach(c=>Object.keys(c.st).forEach(k=>{keys[k]=1;}));
   const subs=['기초','진단평가','중재','법규'].filter(s=>keys[s]);
   let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-weight:800;font-size:calc(var(--u)*2.3);margin-bottom:calc(var(--u)*.6)">분야·영역별 정답률</div>';
   if(hasOld) h+='<div class="note" style="margin-bottom:calc(var(--u)*.8)">출제 목록이 저장되기 전의 옛 기록은 이 표에 포함되지 않습니다.</div>';
   if(!subs.length) return h+'<div class="sub">집계할 수 있는 회차가 아직 없습니다. 새로 푼 회차부터 표시됩니다.</div></div>';
+  h+='<div class="note" style="margin-bottom:calc(var(--u)*.8)">분야 이름을 누르면 영역이 펼쳐지고, %를 누르면 그 문제들이 나옵니다.</div>';
   h+='<div class="accwrap"><table class="acc"><tr><th class="sn">분야 · 영역 <button class="sec acc-all" id="acc-all">모두 펼치기/접기</button></th>'+cols.map(c=>'<th>'+c.name+'</th>').join('')+'</tr>';
   const fieldsOf=s=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|')&&k.split('|').length===2).map(k=>k.split('|')[1]))].sort((x,y)=>ordF(s,x)-ordF(s,y));
   const areasOf=(s,f)=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|'+f+'|')).map(k=>k.split('|')[2]))].sort((x,y)=>ordA(s,f,x)-ordA(s,f,y));
   subs.forEach(s=>{
     h+='<tr class="rs"><td class="sn">'+s+'</td>'+cols.map(c=>'<td>'+accCell(c.st[s])+'</td>').join('')+'</tr>';
     fieldsOf(s).forEach(f=>{ const fk=s+'|'+f, open=!!accOpen[fk];
-      h+='<tr class="rf" data-k="'+esc(fk)+'"><td class="sn">'+(open?'▾ ':'▸ ')+esc(f)+'</td>'+cols.map(c=>'<td>'+accCell(c.st[fk])+'</td>').join('')+'</tr>';
-      if(open) areasOf(s,f).forEach(x=>{ const ak=fk+'|'+x; h+='<tr class="ra"><td class="sn">'+esc(x)+'</td>'+cols.map(c=>'<td>'+accCell(c.st[ak])+'</td>').join('')+'</tr>'; });
+      h+='<tr class="rf" data-k="'+esc(fk)+'"><td class="sn nm">'+(open?'▾ ':'▸ ')+esc(f)+'</td>'+cols.map(c=>vcell(c,fk)).join('')+'</tr>';
+      if(open) areasOf(s,f).forEach(x=>{ const ak=fk+'|'+x; h+='<tr class="ra"><td class="sn">'+esc(x)+'</td>'+cols.map(c=>vcell(c,ak)).join('')+'</tr>'; });
     });
   });
   return h+'</table></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
@@ -361,33 +392,69 @@ function accPanel(cols,hasOld){
 function accFor(filter){
   const all=U.records.filter(r=>r.qs&&r.qs.length), hasOld=U.records.some(r=>!(r.qs&&r.qs.length));
   const tot={}; all.forEach(r=>{ const s=recStats(r); Object.keys(s).forEach(k=>{ const v=tot[k]=tot[k]||{c:0,t:0}; v.c+=s[k].c; v.t+=s[k].t; }); });
+  const mk=r=>({id:r.no,name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)});
   let cols;
-  if(filter==='all') cols=all.map(r=>({name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)})).concat([{name:'전체 평균',st:tot}]);
-  else { const r=U.records.find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push({name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)}); cols.push({name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
+  if(filter==='all') cols=all.map(mk).concat([{id:'all',name:'전체 평균',st:tot}]);
+  else { const r=U.records.find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); cols.push({id:'all',name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
   return accPanel(cols,hasOld&&filter==='all');
 }
+function keyMatch(q,key){ const qk=q.subj+'|'+q.field+'|'+q.area; return qk===key||qk.startsWith(key+'|'); }
+function cellEntries(col,key){
+  const m={}, order=[];
+  U.records.filter(r=>r.qs&&r.qs.length&&(col==='all'||r.no===+col)).forEach(r=>recMap(r).forEach(e=>{ if(keyMatch(byId[e.id],key)){ if(!m[e.id]){m[e.id]=[];order.push(e.id);} m[e.id].push(e);} }));
+  return order.map(id=>({q:byId[id],es:m[id]}));
+}
+function renderCell(){
+  const body=$('rec-body'), cs=cellState, cnts=wrongCounts();
+  let items=cellEntries(cs.col,cs.key);
+  const tot=items.reduce((a,x)=>a+x.es.length,0), okc=items.reduce((a,x)=>a+x.es.filter(e=>e.ok).length,0);
+  if(cs.col==='all') items.sort((a,b)=>Q.indexOf(a.q)-Q.indexOf(b.q)); else items.sort((a,b)=>a.es[0].i-b.es[0].i);
+  const nWrong=items.filter(x=>x.es.some(e=>!e.ok)).length;
+  const list=items.filter(x=>cs.mode==='all'||x.es.some(e=>!e.ok));
+  const title=(cs.col==='all'?'전체 평균':cs.col+'회차')+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
+  const mb=(k,t)=>'<button data-cm="'+k+'" class="'+(cs.mode===k?'on':'')+'">'+t+'</button>';
+  let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button>'+mb('all','전체 '+items.length)+mb('wrong','오답만 '+nWrong)+'</div><div class="sechd">'+esc(title)+'</div>';
+  if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
+  list.forEach(x=>{ h+=qCard(x.q,x.es,{count:(cnts[x.q.id]||[]).length,showWhich:cs.col==='all'}); });
+  body.innerHTML=h; body.scrollTop=0;
+}
 function renderWrong(){
+  if(cellState) return renderCell();
   const R=U.records, cnts=wrongCounts(), body=$('rec-body');
   let h='<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+r.no+'회차·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
   h+=accFor(wrongFilter);
+  const mb=(k,t)=>'<button data-wm="'+k+'" class="'+(wrongMode===k?'on':'')+'">'+t+'</button>';
   if(wrongFilter==='all'){
-    const ids=Object.keys(cnts).filter(i=>byId[i]).sort((a,b)=>cnts[b].length-cnts[a].length||Q.indexOf(byId[a])-Q.indexOf(byId[b]));
-    const rep=ids.filter(i=>cnts[i].length>=2).length;
-    h+='<div class="sechd">전체 회차 틀린 문제 '+ids.length+'개 · 2번 이상 틀린 문제 '+rep+'개</div>';
-    if(!ids.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
-    ids.forEach(id=>{ const mines=[]; R.forEach(r=>{const w=r.wrong.find(x=>x.q===id); if(w) mines.push({no:r.no,m:w.m});}); h+=qCard(byId[id],mines,{count:cnts[id].length,showWhich:true}); });
+    const m={}; R.forEach(r=>recMap(r).forEach(e=>{(m[e.id]=m[e.id]||[]).push(e);}));
+    const cand=Object.keys(m).map(id=>({id:id,es:m[id],w:m[id].filter(e=>!e.ok).length,f:m[id].filter(e=>e.fl).length})).filter(x=>x.w||x.f);
+    const nW=cand.filter(x=>x.w).length, nRep=cand.filter(x=>x.w>=2).length, nF=cand.filter(x=>x.f).length;
+    const list=cand.filter(x=>wrongMode==='all'||(wrongMode==='wrong'&&x.w)||(wrongMode==='flag'&&x.f)).sort((a,b)=>b.w-a.w||b.f-a.f||Q.indexOf(byId[a.id])-Q.indexOf(byId[b.id]));
+    h+='<div class="chips">'+mb('all','전체 '+cand.length)+mb('wrong','틀린 문제 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
+    h+='<div class="sechd">전체 회차 · 틀린 문제 '+nW+'개 · 2번 이상 틀린 문제 '+nRep+'개 · 다시 확인 '+nF+'개</div>';
+    if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
+    list.forEach(x=>{ h+=qCard(byId[x.id],x.es,{count:x.w,showWhich:true}); });
   } else {
     const r=R.find(x=>x.no===wrongFilter);
     if(!r){wrongFilter='all'; return renderWrong();}
-    h+='<div class="sechd">'+r.no+'회차 · '+r.period+'교시 틀린 문제 '+r.wrong.length+'개</div>';
-    if(!r.wrong.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
-    r.wrong.forEach(w=>{ if(byId[w.q]) h+=qCard(byId[w.q],[{no:r.no,m:w.m}],{count:cnts[w.q].length}); });
+    const cand=recMap(r).filter(e=>!e.ok||e.fl), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
+    const list=cand.filter(e=>wrongMode==='all'||(wrongMode==='wrong'&&!e.ok)||(wrongMode==='flag'&&e.fl));
+    h+='<div class="chips">'+mb('all','전체 '+cand.length)+mb('wrong','틀린 문제 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
+    h+='<div class="sechd">'+r.no+'회차 · '+r.period+'교시 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
+    if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
+    list.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
   }
   body.innerHTML=h; body.scrollTop=0;
-  $('wb-back').onclick=()=>{recView='main'; renderRecords();};
-  body.querySelectorAll('tr.rf').forEach(tr=>{ tr.onclick=()=>{ const k=tr.dataset.k; accOpen[k]=!accOpen[k]; const st=body.scrollTop; renderWrong(); body.scrollTop=st; }; });
-  const aa=$('acc-all'); if(aa) aa.onclick=()=>{ const ks=[...body.querySelectorAll('tr.rf')].map(t=>t.dataset.k); const anyClosed=ks.some(k=>!accOpen[k]); ks.forEach(k=>accOpen[k]=anyClosed); const st=body.scrollTop; renderWrong(); body.scrollTop=st; };
+  $('wb-back').onclick=()=>{recView='main'; cellState=null; renderRecords();};
 }
+$('rec-body').addEventListener('click',ev=>{
+  const body=$('rec-body'), keep=fn=>{ const st=body.scrollTop; fn(); body.scrollTop=st; };
+  const nm=ev.target.closest('td.nm'); if(nm){ const k=nm.parentNode.dataset.k; keep(()=>{ accOpen[k]=!accOpen[k]; renderWrong(); }); return; }
+  const vc=ev.target.closest('td.v'); if(vc){ accScroll=body.scrollTop; cellState={col:vc.dataset.c,key:vc.dataset.k,mode:'all'}; renderWrong(); return; }
+  if(ev.target.closest('#acc-all')){ const ks=[...body.querySelectorAll('tr.rf')].map(t=>t.dataset.k); const anyClosed=ks.some(k=>!accOpen[k]); ks.forEach(k=>accOpen[k]=anyClosed); keep(renderWrong); return; }
+  const wm=ev.target.closest('[data-wm]'); if(wm){ wrongMode=wm.dataset.wm; keep(renderWrong); return; }
+  const cm=ev.target.closest('[data-cm]'); if(cm&&cellState){ cellState.mode=cm.dataset.cm; keep(renderCell); return; }
+  if(ev.target.closest('#cell-back')){ cellState=null; renderWrong(); body.scrollTop=accScroll; }
+});
 
 /* ---------- 비밀번호 변경 ---------- */
 $('pw-save').onclick=async()=>{
