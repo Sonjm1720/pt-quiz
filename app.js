@@ -291,6 +291,9 @@ function showResult(rec,justDone){
   else add('기록으로','sec',()=>showRecords());
   renderResultBody(); $('res-body').scrollTop=0;
 }
+const FM=[['all','전체'],['right','맞힌 문제'],['wrong','틀린 문제'],['fok','다시 확인-정답'],['fbad','다시 확인-오답']];
+function fm(k,es){ if(k==='all') return true; if(k==='right') return es.some(e=>e.ok); if(k==='wrong') return es.some(e=>!e.ok); if(k==='fok') return es.some(e=>e.fl&&e.ok); if(k==='fbad') return es.some(e=>e.fl&&!e.ok); return true; }
+function fchips(attr,cur,groups){ return '<div class="chips">'+FM.map(p=>'<button data-'+attr+'="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'">'+p[1]+' '+groups.filter(g=>fm(p[0],g)).length+'</button>').join('')+'</div>'; }
 function renderResultBody(){
   const rec=resRec, rows=PERIODS[rec.period].subs.map(s=>[s,rec.subj[s]||{c:0,t:0}]);
   const es=recMap(rec), hasAll=!!(rec.qs&&rec.qs.length), cnts=wrongCounts();
@@ -299,9 +302,8 @@ function renderResultBody(){
   if(hasAll){
     h+='<div class="sechd">문제별 결과 · 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
     h+='<div class="rgrid">'+es.map((e,i)=>'<button class="nb '+(e.ok?'a':'u')+(e.fl?' f':'')+'" data-j="'+i+'">'+(i+1)+'</button>').join('')+'</div>';
-    const mb=(k,t)=>'<button data-rm="'+k+'" class="'+(resMode===k?'on':'')+'">'+t+'</button>';
-    h+='<div class="chips">'+mb('all','전체 '+es.length)+mb('wrong','틀린 것만 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
-    const list=es.filter(e=>resMode==='all'||(resMode==='wrong'&&!e.ok)||(resMode==='flag'&&e.fl));
+    h+=fchips('rm',resMode,es.map(e=>[e]));
+    const list=es.filter(e=>fm(resMode,[e]));
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(e=>{ h+='<div id="rc-'+e.i+'">'+qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length,num:e.i+1})+'</div>'; });
   } else {
@@ -410,10 +412,9 @@ function renderCell(){
   const tot=items.reduce((a,x)=>a+x.es.length,0), okc=items.reduce((a,x)=>a+x.es.filter(e=>e.ok).length,0);
   if(cs.col==='all') items.sort((a,b)=>Q.indexOf(a.q)-Q.indexOf(b.q)); else items.sort((a,b)=>a.es[0].i-b.es[0].i);
   const nWrong=items.filter(x=>x.es.some(e=>!e.ok)).length;
-  const list=items.filter(x=>cs.mode==='all'||x.es.some(e=>!e.ok));
+  const list=items.filter(x=>fm(cs.mode,x.es));
   const title=(cs.col==='all'?'전체 평균':cs.col+'회차')+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
-  const mb=(k,t)=>'<button data-cm="'+k+'" class="'+(cs.mode===k?'on':'')+'">'+t+'</button>';
-  let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button>'+mb('all','전체 '+items.length)+mb('wrong','오답만 '+nWrong)+'</div><div class="sechd">'+esc(title)+'</div>';
+  let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button></div>'+fchips('cm',cs.mode,items.map(x=>x.es))+'<div class="sechd">'+esc(title)+'</div>';
   if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
   list.forEach(x=>{ h+=qCard(x.q,x.es,{count:(cnts[x.q.id]||[]).length,showWhich:cs.col==='all'}); });
   body.innerHTML=h; body.scrollTop=0;
@@ -423,22 +424,21 @@ function renderWrong(){
   const R=U.records, cnts=wrongCounts(), body=$('rec-body');
   let h='<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+r.no+'회차·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
   h+=accFor(wrongFilter);
-  const mb=(k,t)=>'<button data-wm="'+k+'" class="'+(wrongMode===k?'on':'')+'">'+t+'</button>';
   if(wrongFilter==='all'){
     const m={}; R.forEach(r=>recMap(r).forEach(e=>{(m[e.id]=m[e.id]||[]).push(e);}));
-    const cand=Object.keys(m).map(id=>({id:id,es:m[id],w:m[id].filter(e=>!e.ok).length,f:m[id].filter(e=>e.fl).length})).filter(x=>x.w||x.f);
+    const cand=Object.keys(m).map(id=>({id:id,es:m[id],w:m[id].filter(e=>!e.ok).length,f:m[id].filter(e=>e.fl).length}));
     const nW=cand.filter(x=>x.w).length, nRep=cand.filter(x=>x.w>=2).length, nF=cand.filter(x=>x.f).length;
-    const list=cand.filter(x=>wrongMode==='all'||(wrongMode==='wrong'&&x.w)||(wrongMode==='flag'&&x.f)).sort((a,b)=>b.w-a.w||b.f-a.f||Q.indexOf(byId[a.id])-Q.indexOf(byId[b.id]));
-    h+='<div class="chips">'+mb('all','전체 '+cand.length)+mb('wrong','틀린 문제 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
+    const list=cand.filter(x=>fm(wrongMode,x.es)).sort((a,b)=>b.w-a.w||b.f-a.f||Q.indexOf(byId[a.id])-Q.indexOf(byId[b.id]));
+    h+=fchips('wm',wrongMode,cand.map(x=>x.es));
     h+='<div class="sechd">전체 회차 · 틀린 문제 '+nW+'개 · 2번 이상 틀린 문제 '+nRep+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(x=>{ h+=qCard(byId[x.id],x.es,{count:x.w,showWhich:true}); });
   } else {
     const r=R.find(x=>x.no===wrongFilter);
     if(!r){wrongFilter='all'; return renderWrong();}
-    const cand=recMap(r).filter(e=>!e.ok||e.fl), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
-    const list=cand.filter(e=>wrongMode==='all'||(wrongMode==='wrong'&&!e.ok)||(wrongMode==='flag'&&e.fl));
-    h+='<div class="chips">'+mb('all','전체 '+cand.length)+mb('wrong','틀린 문제 '+nW)+mb('flag','다시 확인 '+nF)+'</div>';
+    const cand=recMap(r), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
+    const list=cand.filter(e=>fm(wrongMode,[e]));
+    h+=fchips('wm',wrongMode,cand.map(e=>[e]));
     h+='<div class="sechd">'+r.no+'회차 · '+r.period+'교시 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
