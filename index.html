@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>물리치료사 국가시험 모의고사</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#1b2330;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;color:#1d2433;overflow:hidden;touch-action:manipulation}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;background:#f3f5f9;overflow:hidden;--u:10px;font-size:calc(var(--u)*2);line-height:1.4;box-shadow:0 0 40px rgba(0,0,0,.4)}
+button{font:inherit;cursor:pointer;border:0;border-radius:calc(var(--u)*1);padding:calc(var(--u)*1.2) calc(var(--u)*2.4);background:#2457c5;color:#fff;font-weight:700}
+button:active{filter:brightness(.9)}
+button.sec{background:#e3e8f2;color:#27304a}
+button.warn{background:#d64545}
+button.ok{background:#2e9e5b}
+button:disabled{opacity:.4}
+.screen{position:absolute;inset:0;display:none;flex-direction:column}
+.screen.on{display:flex}
+.center{align-items:center;justify-content:center;text-align:center;padding:calc(var(--u)*4)}
+h1{font-size:calc(var(--u)*4);margin:0 0 calc(var(--u)*1)}
+h2{font-size:calc(var(--u)*2.8);margin:0}
+.sub{color:#5b667f;font-size:calc(var(--u)*1.7)}
+input.sid{font:inherit;font-size:calc(var(--u)*4);letter-spacing:calc(var(--u)*.6);text-align:center;width:calc(var(--u)*34);padding:calc(var(--u)*1.4);border:calc(var(--u)*.3) solid #b8c3da;border-radius:calc(var(--u)*1.2);margin:calc(var(--u)*2) 0 calc(var(--u)*1)}
+.err{color:#d64545;min-height:calc(var(--u)*2.6);font-weight:700}
+.row{display:flex;gap:calc(var(--u)*2);justify-content:center;flex-wrap:wrap}
+.bigbtn{font-size:calc(var(--u)*2.6);padding:calc(var(--u)*2.4) calc(var(--u)*5);min-width:calc(var(--u)*26)}
+.card{background:#fff;border-radius:calc(var(--u)*1.4);box-shadow:0 1px calc(var(--u)*.6) rgba(0,0,0,.12);padding:calc(var(--u)*2)}
+.pcard{width:calc(var(--u)*38);text-align:left}
+.pcard h2{margin-bottom:calc(var(--u)*1)}
+.pcard p{margin:calc(var(--u)*.4) 0}
+/* exam */
+.hdr{height:calc(var(--u)*7);flex:none;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--u)*1.6);border-bottom:calc(var(--u)*.2) solid #d8deea;gap:calc(var(--u)*1)}
+.hdr .l,.hdr .r{display:flex;align-items:center;gap:calc(var(--u)*1)}
+.hdr .m{font-weight:700;color:#27304a;text-align:center;flex:1}
+.hdr button{padding:calc(var(--u)*.9) calc(var(--u)*1.8);font-size:calc(var(--u)*1.8)}
+.tag{display:inline-block;font-size:calc(var(--u)*1.4);background:#eef1f8;border-radius:calc(var(--u)*.8);padding:0 calc(var(--u)*.8);color:#46506b;margin-left:calc(var(--u)*.6);font-weight:600}
+#recheck{background:#e3e8f2;color:#27304a;border:calc(var(--u)*.3) solid transparent}
+#recheck.on{background:#fffbe0;border-color:#ffe600;box-shadow:0 0 calc(var(--u)*1.2) #fff200;color:#6b5b00}
+#timer{font-variant-numeric:tabular-nums;font-size:calc(var(--u)*3);font-weight:800;min-width:calc(var(--u)*11);text-align:center;color:#1d2433}
+#timer.w5{color:#e07a00}
+#timer.w1{color:#d64545}
+.body{flex:1;overflow-y:auto;padding:calc(var(--u)*2.2) calc(var(--u)*4);-webkit-overflow-scrolling:touch}
+.stem{font-size:calc(var(--u)*2.3);font-weight:700;line-height:1.5;margin-bottom:calc(var(--u)*1.8)}
+.stem ul{margin:calc(var(--u)*.6) 0 0;padding-left:calc(var(--u)*2);font-weight:500;font-size:calc(var(--u)*2.05)}
+.opt{display:flex;gap:calc(var(--u)*1.2);align-items:flex-start;background:#fff;border:calc(var(--u)*.3) solid #cfd7e8;border-radius:calc(var(--u)*1.2);padding:calc(var(--u)*1.1) calc(var(--u)*1.6);margin-bottom:calc(var(--u)*1);font-size:calc(var(--u)*2.05);cursor:pointer}
+.opt .n{font-weight:800;color:#2457c5;flex:none}
+.opt.sel{border-color:#2457c5;background:#e7efff}
+.ftr{height:calc(var(--u)*8);flex:none;background:#fff;border-top:calc(var(--u)*.2) solid #d8deea;display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--u)*3)}
+.ftr button{font-size:calc(var(--u)*2.2);padding:calc(var(--u)*1.2) calc(var(--u)*4)}
+.ftr .cnt{color:#5b667f;font-size:calc(var(--u)*1.7)}
+.ov{position:absolute;inset:0;background:#f3f5f9;display:none;flex-direction:column;z-index:20}
+.ov.on{display:flex}
+.pause{align-items:center;justify-content:center;text-align:center;background:#243049;color:#fff;z-index:30}
+.pause h1{color:#fff}
+.modal{background:rgba(15,20,30,.55);align-items:center;justify-content:center;z-index:40}
+.modal .box{background:#fff;border-radius:calc(var(--u)*1.6);padding:calc(var(--u)*3);width:calc(var(--u)*50);max-width:92%;text-align:center}
+.modal .box p{margin:calc(var(--u)*1) 0 calc(var(--u)*2);font-size:calc(var(--u)*2.1);white-space:pre-line}
+.toast{position:absolute;top:calc(var(--u)*8);left:50%;transform:translateX(-50%);background:#d64545;color:#fff;font-weight:800;font-size:calc(var(--u)*3);padding:calc(var(--u)*1.2) calc(var(--u)*4);border-radius:calc(var(--u)*1.4);z-index:50;display:none;box-shadow:0 calc(var(--u)*.4) calc(var(--u)*2) rgba(0,0,0,.35)}
+.toast.on{display:block}
+/* selector */
+.selbody{flex:1;overflow-y:auto;padding:calc(var(--u)*2) calc(var(--u)*3)}
+.sechd{font-weight:800;font-size:calc(var(--u)*2.1);margin:calc(var(--u)*1.2) 0 calc(var(--u)*.8);color:#27304a}
+.grid{display:flex;flex-wrap:wrap;gap:calc(var(--u)*.8)}
+.nb{width:calc(var(--u)*5);height:calc(var(--u)*5);padding:0;display:flex;align-items:center;justify-content:center;font-size:calc(var(--u)*2);border-radius:calc(var(--u)*1);color:#fff;border:calc(var(--u)*.45) solid transparent}
+.nb.a{background:#2e9e5b}
+.nb.u{background:#d64545}
+.nb.f{border-color:#ffe600;box-shadow:0 0 calc(var(--u)*1.1) #fff200,0 0 calc(var(--u)*.3) #ffe600 inset}
+.nb.cur{outline:calc(var(--u)*.45) solid #1d2433;outline-offset:calc(var(--u)*.35)}
+.legend{display:flex;gap:calc(var(--u)*2);align-items:center;font-size:calc(var(--u)*1.6);color:#46506b;flex-wrap:wrap}
+.legend i{display:inline-block;width:calc(var(--u)*2.2);height:calc(var(--u)*2.2);border-radius:calc(var(--u)*.5);vertical-align:middle;margin-right:calc(var(--u)*.5);border:calc(var(--u)*.35) solid transparent}
+/* result / records */
+.scroll{flex:1;overflow-y:auto;padding:calc(var(--u)*2) calc(var(--u)*3)}
+.top{flex:none;display:flex;justify-content:space-between;align-items:center;padding:calc(var(--u)*1.4) calc(var(--u)*3);background:#fff;border-bottom:calc(var(--u)*.2) solid #d8deea}
+.top h2{font-size:calc(var(--u)*2.6)}
+table{border-collapse:collapse;width:100%;font-size:calc(var(--u)*1.9)}
+th,td{padding:calc(var(--u)*.9) calc(var(--u)*1);text-align:center;border-bottom:calc(var(--u)*.15) solid #e4e9f3}
+th{color:#5b667f;font-weight:700}
+td.sn{text-align:left;font-weight:700}
+.chip{display:inline-block;font-weight:800;border-radius:calc(var(--u)*1);padding:calc(var(--u)*.2) calc(var(--u)*1.2);font-size:calc(var(--u)*1.8);color:#fff}
+.c-fail{background:#d64545}.c-warn{background:#e8890c}.c-safe{background:#2f6fd6}.c-top{background:#2e9e5b}
+.note{font-size:calc(var(--u)*1.4);color:#7a849c}
+.rec{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*1.5);margin-bottom:calc(var(--u)*1.2)}
+.rec .t{font-weight:800;font-size:calc(var(--u)*2.1)}
+.rec .d{font-size:calc(var(--u)*1.6);color:#5b667f;margin-top:calc(var(--u)*.3)}
+.rec button{padding:calc(var(--u)*.8) calc(var(--u)*1.6);font-size:calc(var(--u)*1.7)}
+.chips{display:flex;flex-wrap:wrap;gap:calc(var(--u)*.8);margin-bottom:calc(var(--u)*1.4)}
+.chips button{background:#e3e8f2;color:#27304a;padding:calc(var(--u)*.7) calc(var(--u)*1.5);font-size:calc(var(--u)*1.7)}
+.chips button.on{background:#2457c5;color:#fff}
+.wq{background:#fff;border-radius:calc(var(--u)*1.2);padding:calc(var(--u)*1.6);margin-bottom:calc(var(--u)*1.4);border-left:calc(var(--u)*.8) solid #cfd7e8}
+.wq.rep{border-left-color:#d64545;background:#fff4f4;box-shadow:0 0 0 calc(var(--u)*.25) #d64545 inset}
+.wq .meta{font-size:calc(var(--u)*1.5);color:#5b667f;display:flex;flex-wrap:wrap;gap:calc(var(--u)*.8);align-items:center;margin-bottom:calc(var(--u)*.6)}
+.badge{background:#d64545;color:#fff;font-weight:800;border-radius:calc(var(--u)*.8);padding:0 calc(var(--u)*1);font-size:calc(var(--u)*1.6)}
+.pg{background:#fff3c4;color:#6b5b00;font-weight:800;border-radius:calc(var(--u)*.8);padding:0 calc(var(--u)*1);font-size:calc(var(--u)*1.6)}
+.wq .st{font-weight:700;font-size:calc(var(--u)*1.95);margin-bottom:calc(var(--u)*.8)}
+.wq .st ul{margin:calc(var(--u)*.4) 0 0;padding-left:calc(var(--u)*2);font-weight:500}
+.wo{font-size:calc(var(--u)*1.8);padding:calc(var(--u)*.35) calc(var(--u)*.8);border-radius:calc(var(--u)*.6)}
+.wo.right{background:#d8f2e2;font-weight:700}
+.wo.mine{background:#fbd9d9}
+.wo.right.mine{background:#d8f2e2}
+.small{font-size:calc(var(--u)*1.5);color:#5b667f}
+.box{border:calc(var(--u)*.25) solid #3b4a6b;border-radius:calc(var(--u)*.8);background:#fff;padding:calc(var(--u)*1.2) calc(var(--u)*1.6) calc(var(--u)*1.2) calc(var(--u)*1.4);margin-top:calc(var(--u)*.9)}
+.box ul{margin:0!important;padding-left:calc(var(--u)*2)!important}
+.box li{font-weight:500}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+
+<!-- 로그인 -->
+<div class="screen center on" id="s-login">
+  <h1>물리치료사 국가시험 모의고사</h1>
+  <div class="sub">46~53회 기출 · 개념정리본 기출기반 연동</div>
+  <div style="margin-top:calc(var(--u)*1.6)">
+    <input id="sid" class="sid" inputmode="numeric" pattern="[0-9]*" maxlength="7" placeholder="학번 7자리" autocomplete="username">
+  </div>
+  <div><input id="pw" class="sid" type="password" placeholder="비밀번호" autocomplete="current-password" style="letter-spacing:calc(var(--u)*.2);margin-top:0"></div>
+  <div class="err" id="login-err"></div>
+  <button class="bigbtn" id="login-go">로그인</button>
+  <div class="note" style="margin-top:calc(var(--u)*2)">아이패드 가로 화면에 맞춰져 있습니다. 비밀번호를 잊으면 관리자에게 초기화를 요청해 주세요.</div>
+</div>
+
+<div class="screen center" id="s-loading"><h2 id="loading-t">불러오는 중…</h2></div>
+
+<!-- 홈 -->
+<div class="screen center" id="s-home">
+  <div class="sub" id="home-id"></div>
+  <h1 style="margin-bottom:calc(var(--u)*3)">무엇을 할까요?</h1>
+  <div id="home-resume" class="card" style="display:none;margin-bottom:calc(var(--u)*2.4)">
+    <div style="font-weight:800" id="home-resume-t"></div>
+    <div class="row" style="margin-top:calc(var(--u)*1.2)"><button class="ok" id="resume-go">이어서 풀기</button><button class="sec" id="resume-drop">이 시험 포기</button></div>
+  </div>
+  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
+  <div class="note" id="home-note" style="margin-top:calc(var(--u)*1.6);min-height:calc(var(--u)*2)"></div>
+  <div class="row" style="margin-top:calc(var(--u)*1.6)"><button class="sec" id="h-pw">비밀번호 변경</button><button class="sec" id="h-logout">로그아웃</button><button class="sec" id="h-admin" style="display:none">관리자</button></div>
+</div>
+
+<!-- 비밀번호 변경 -->
+<div class="screen center" id="s-pw">
+  <h1>비밀번호 변경</h1>
+  <div><input id="pw-new" class="sid" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" style="font-size:calc(var(--u)*3);letter-spacing:calc(var(--u)*.2)"></div>
+  <div><input id="pw-new2" class="sid" type="password" placeholder="새 비밀번호 한 번 더" autocomplete="new-password" style="font-size:calc(var(--u)*3);letter-spacing:calc(var(--u)*.2);margin-top:0"></div>
+  <div class="err" id="pw-msg"></div>
+  <div class="row"><button class="bigbtn" id="pw-save">변경</button><button class="bigbtn sec" id="pw-back">뒤로</button></div>
+</div>
+
+<!-- 관리자 -->
+<div class="screen" id="s-admin">
+  <div class="top"><h2>관리자</h2><div class="row"><button class="sec" id="adm-back">홈</button></div></div>
+  <div class="scroll">
+    <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
+      <div class="sechd" style="margin-top:0">1. 문제 데이터 올리기</div>
+      <div class="small" style="margin-bottom:calc(var(--u)*1)">questions_upload.json 파일을 고른 뒤 올리기를 누릅니다. 처음 한 번만 하면 됩니다.</div>
+      <input type="file" id="adm-file" accept=".json,application/json"> <button id="adm-up">올리기</button>
+    </div>
+    <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
+      <div class="sechd" style="margin-top:0">2. 전체 기록 백업</div>
+      <div class="row" style="justify-content:flex-start"><button id="adm-exp">전체 기록 불러오기</button><button class="sec" id="adm-copy">복사</button><button class="sec" id="adm-dl">파일로 저장</button></div>
+      <textarea id="adm-out" style="width:100%;height:calc(var(--u)*14);margin-top:calc(var(--u)*1);font-size:calc(var(--u)*1.3)"></textarea>
+    </div>
+    <div class="card"><pre id="adm-log" style="white-space:pre-wrap;margin:0;font:inherit"></pre></div>
+  </div>
+</div>
+
+<!-- 교시 선택 -->
+<div class="screen center" id="s-pick">
+  <h1 style="margin-bottom:calc(var(--u)*2.4)">교시 선택</h1>
+  <div class="row" style="align-items:stretch">
+    <div class="card pcard"><h2>1교시</h2><p>물리치료 기초 <b>60</b>문항</p><p>물리치료 진단평가 <b>45</b>문항</p><p>총 105문항 · <b>85분</b></p><button class="bigbtn" style="margin-top:calc(var(--u)*1.6);width:100%" data-p="1">1교시 시작</button></div>
+    <div class="card pcard"><h2>2교시</h2><p>물리치료 중재 <b>65</b>문항</p><p>의료관계법규 <b>20</b>문항</p><p>총 85문항 · <b>70분</b></p><button class="bigbtn" style="margin-top:calc(var(--u)*1.6);width:100%" data-p="2">2교시 시작</button></div>
+  </div>
+  <div class="note" style="margin-top:calc(var(--u)*2)">1교시와 2교시는 따로 응시합니다. 의료관계법규는 기출 당시 기준입니다.</div>
+  <div style="margin-top:calc(var(--u)*2)"><button class="sec" data-back="home">뒤로</button></div>
+</div>
+
+<!-- 시험 -->
+<div class="screen" id="s-exam">
+  <div class="hdr">
+    <div class="l"><button id="recheck">다시 확인</button></div>
+    <div class="m" id="qtitle"></div>
+    <div class="r"><span id="timer">00:00</span><button class="sec" id="pause-btn">잠시 멈춤</button><button id="sel-btn">문제 선택</button></div>
+  </div>
+  <div class="body" id="qbody"></div>
+  <div class="ftr"><button class="sec" id="prev">이전</button><span class="cnt" id="cnt"></span><button id="next">다음</button></div>
+
+  <div class="ov" id="ov-sel">
+    <div class="top"><h2>문제 선택</h2><div class="row"><button class="ok" id="sel-submit">제출</button><button class="sec" id="sel-close">닫기</button></div></div>
+    <div class="selbody">
+      <div class="legend"><span><i style="background:#2e9e5b"></i>선택함</span><span><i style="background:#d64545"></i>선택 안 함</span><span><i style="background:#999;border-color:#ffe600;box-shadow:0 0 6px #fff200"></i>다시 확인</span><span><i style="background:#fff;border-color:#1d2433"></i>현재 문제</span></div>
+      <div id="sel-grid"></div>
+    </div>
+  </div>
+  <div class="ov pause" id="ov-pause">
+    <h1>잠시 멈춤</h1>
+    <div class="sub" style="color:#c9d3ea;margin-bottom:calc(var(--u)*3)">시험 시간이 흐르지 않습니다.</div>
+    <div><button class="bigbtn ok" id="resume">시험 재개</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- 결과 -->
+<div class="screen" id="s-result">
+  <div class="top"><h2 id="res-title"></h2><div class="row" id="res-btns"></div></div>
+  <div class="scroll" id="res-body"></div>
+</div>
+
+<!-- 기록 -->
+<div class="screen" id="s-rec">
+  <div class="top"><h2 id="rec-title">기록</h2><div class="row" id="rec-btns"></div></div>
+  <div class="scroll" id="rec-body"></div>
+</div>
+
+<div class="ov modal" id="modal"><div class="box"><p id="modal-t"></p><div class="row" id="modal-b"></div></div></div>
+</div></div>
+
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
