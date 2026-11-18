@@ -72,6 +72,17 @@ function pickSubject(subj,total){
   out.sort((x,y)=>x.fo-y.fo||x.ao-y.ao);
   return out.reduce((acc,p)=>acc.concat(p.ids),[]);
 }
+function lab(r){ return r.real?'국가고시 '+r.real+'회':r.no+'회차'; }
+let recTab='mock';
+function RS(){ return U.records.filter(r=>recTab==='real'?!!r.real:!r.real); }
+function realQids(round,period){
+  const pre=round+'회 '+period+'교시 ';
+  return Q.filter(q=>q.id.indexOf(pre)===0).sort((a,b)=>parseInt(a.id.slice(pre.length))-parseInt(b.id.slice(pre.length))).map(q=>q.id);
+}
+function buildReal(round,period){
+  const P=PERIODS[period];
+  return {period:period,real:round,qids:realQids(round,period),ans:{},flag:{},idx:0,remaining:P.min*60000,total:P.min*60000,alerts:{a5:false,a1:false},startedAt:nowIso(),paused:false};
+}
 function buildExam(period){
   const P=PERIODS[period]; let ids=[];
   P.subs.forEach(s=>{ ids=ids.concat(pickSubject(s,P.counts[s])); });
@@ -170,7 +181,7 @@ async function logout(){ try{ await DB.signOut(); }catch(e){} sid=null; U=null; 
 function curQ(){return byId[E.qids[E.idx]];}
 function renderQ(){
   const q=curQ(), n=E.idx+1;
-  $('qtitle').innerHTML=E.period+'교시 · '+q.subj+' · <b>'+n+'번</b> / '+E.qids.length+'<span class="src">기출 '+esc(q.id)+'</span>'+(q.subj==='법규'?'<span class="tag">기출 당시 기준</span>':'');
+  $('qtitle').innerHTML=(E.real?'국가고시 '+E.real+'회 ':'')+E.period+'교시 · '+q.subj+' · <b>'+n+'번</b> / '+E.qids.length+'<span class="src">기출 '+esc(q.id)+'</span>'+(q.subj==='법규'?'<span class="tag">기출 당시 기준</span>':'');
   const sel=E.ans[q.id];
   let h='<div class="stem">'+stemHtml(q.stem)+'</div>';
   q.opts.forEach((o,i)=>{ h+='<div class="opt'+(sel===i?' sel':'')+'" data-i="'+i+'"><span class="n">'+'①②③④⑤'[i]+'</span><span>'+esc(o)+'</span></div>'; });
@@ -249,6 +260,7 @@ async function submitExam(auto){
   let next=U.nextNo;
   try{ const r=await T(DB.getUser(sid),4000); next=Math.max(next,(r&&r.nextNo)||1); }catch(e){}
   const rec={no:next,period:ex.period,at:nowIso(),auto:!!auto,used:ex.total-Math.max(0,ex.remaining),subj,correct:c,total:ex.qids.length,wrong,qs:ex.qids.slice(),fl:ex.qids.filter(id=>ex.flag&&ex.flag[id]),pending:true};
+  if(ex.real) rec.real=ex.real;
   U.nextNo=next+1; U.records.push(rec); U.exam=null; U.examAt=nowIso(); saveLocal();
   showResult(rec,true);
   T(DB.putRecord(sid,clean(Object.assign({},rec,{pending:undefined}))))
@@ -257,7 +269,7 @@ async function submitExam(auto){
 }
 
 /* ---------- 틀린 문제 표시 ---------- */
-function wrongCounts(){ const m={}; U.records.forEach(r=>r.wrong.forEach(w=>{(m[w.q]=m[w.q]||[]).push(r.no);})); return m; }
+function wrongCounts(){ const m={}; RS().forEach(r=>r.wrong.forEach(w=>{(m[w.q]=m[w.q]||[]).push(r.no);})); return m; }
 function qCard(q,es,opts){
   opts=opts||{}; const cnt=opts.count||0, rep=cnt>=2, one=es.length===1?es[0]:null;
   let h='<div class="wq'+(rep?' rep':'')+'"><div class="meta">';
@@ -270,7 +282,7 @@ function qCard(q,es,opts){
   const mine=new Set(es.filter(e=>!e.ok&&e.m>=0).map(e=>e.m));
   q.opts.forEach((o,i)=>{ h+='<div class="wo'+(i===q.ans?' right':'')+(mine.has(i)?' mine':'')+'">'+'①②③④⑤'[i]+' '+esc(o)+(i===q.ans?'  ← 정답':'')+(mine.has(i)&&i!==q.ans?'  ← 내 답':'')+'</div>'; });
   if(one&&!one.ok&&one.m<0) h+='<div class="small nosel">선택한 선지 없음</div>';
-  if(opts.showWhich) h+='<div class="small" style="margin-top:calc(var(--u)*.8)">'+es.map(x=>x.no+'회차: '+(x.ok?'정답':(x.m<0?'선택한 선지 없음':'①②③④⑤'[x.m]+' 오답'))+(x.fl?' · 다시 확인':'')).join(' · ')+'</div>';
+  if(opts.showWhich) h+='<div class="small" style="margin-top:calc(var(--u)*.8)">'+es.map(x=>x.lab+': '+(x.ok?'정답':(x.m<0?'선택한 선지 없음':'①②③④⑤'[x.m]+' 오답'))+(x.fl?' · 다시 확인':'')).join(' · ')+'</div>';
   return h+'</div>';
 }
 
@@ -282,11 +294,11 @@ function subjTable(rows){
 }
 let resRec=null, resMode='all';
 function showResult(rec,justDone){
-  resRec=rec; resMode='all'; show('s-result');
-  $('res-title').textContent=rec.no+'회차 · '+rec.period+'교시 결과'+(rec.auto?' (시간 종료로 자동 제출)':'');
+  resRec=rec; resMode='all'; recTab=rec.real?'real':'mock'; show('s-result');
+  $('res-title').textContent=lab(rec)+' · '+rec.period+'교시 결과'+(rec.auto?' (시간 종료로 자동 제출)':'');
   const b=$('res-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  if(justDone&&rec.period===1) add('2교시 시작','ok',()=>startNew(2));
+  if(justDone&&rec.period===1) add('2교시 시작','ok',()=>startNew(2,rec.real));
   if(justDone) { add('기록','sec',()=>showRecords()); add('홈','sec',()=>showHome()); }
   else add('기록으로','sec',()=>showRecords());
   renderResultBody(); $('res-body').scrollTop=0;
@@ -330,25 +342,27 @@ function showRecords(){
   add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add('홈','sec',showHome);
   renderRecords();
 }
+function tabsHtml(){ return '<div class="chips"><button data-rt="mock" class="'+(recTab==='mock'?'on':'')+'">모의시험</button><button data-rt="real" class="'+(recTab==='real'?'on':'')+'">국가고시</button></div>'; }
 function renderRecords(){
-  const body=$('rec-body'); const R=U.records;
+  const body=$('rec-body'); const R=RS();
   if(recView==='wrong') return renderWrong();
   const agg={}; ['기초','진단평가','중재','법규'].forEach(s=>agg[s]={c:0,t:0});
   R.forEach(r=>Object.keys(r.subj).forEach(s=>{agg[s].c+=r.subj[s].c; agg[s].t+=r.subj[s].t;}));
-  let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-weight:800;font-size:calc(var(--u)*2.3);margin-bottom:calc(var(--u)*.8)">전체 회차 통합 (과목별)</div>'+(R.length?subjTable(Object.entries(agg)):'<div class="sub">아직 기록이 없습니다.</div>')+'<div class="note" style="margin-top:calc(var(--u)*.8)">판정: 40% 미만 과락 · 60% 이하 주의 · 80% 이하 안정권 · 80% 초과 짱이야</div></div>';
+  let h=tabsHtml()+'<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-weight:800;font-size:calc(var(--u)*2.3);margin-bottom:calc(var(--u)*.8)">전체 회차 통합 (과목별)</div>'+(R.length?subjTable(Object.entries(agg)):'<div class="sub">아직 기록이 없습니다.</div>')+'<div class="note" style="margin-top:calc(var(--u)*.8)">판정: 40% 미만 과락 · 60% 이하 주의 · 80% 이하 안정권 · 80% 초과 짱이야</div></div>';
   h+='<div class="sechd">회차별 기록</div>';
-  if(!R.length) h+='<div class="card">모의 시험을 보면 여기에 기록됩니다.</div>';
+  if(!R.length) h+='<div class="card">'+(recTab==='real'?'국가 고시를 풀면':'모의 시험을 보면')+' 여기에 기록됩니다.</div>';
   R.slice().reverse().forEach(r=>{
     const parts=PERIODS[r.period].subs.map(s=>{const v=r.subj[s]||{c:0,t:0}; return s+' '+pct(v.c,v.t)+'% '+chip(v.c,v.t);}).join(' · ');
-    h+='<div class="card rec"><div><div class="t">'+r.no+'회차 · '+r.period+'교시 &nbsp; '+r.correct+' / '+r.total+' ('+pct(r.correct,r.total)+'%)</div><div class="d">'+fmtDate(r.at)+(r.auto?' · 시간 종료':'')+(r.pending?' · 서버 저장 대기':'')+'</div><div class="d">'+parts+'</div></div><div class="row"><button class="sec" data-v="'+r.no+'">상세</button><button class="warn" data-d="'+r.no+'">삭제</button></div></div>';
+    h+='<div class="card rec"><div><div class="t">'+lab(r)+' · '+r.period+'교시 &nbsp; '+r.correct+' / '+r.total+' ('+pct(r.correct,r.total)+'%)</div><div class="d">'+fmtDate(r.at)+(r.auto?' · 시간 종료':'')+(r.pending?' · 서버 저장 대기':'')+'</div><div class="d">'+parts+'</div></div><div class="row"><button class="sec" data-v="'+r.no+'">상세</button><button class="warn" data-d="'+r.no+'">삭제</button></div></div>';
   });
   h+='<div class="note" style="margin-top:calc(var(--u)*1.2)">기록은 학번·비밀번호로 서버에 저장되어 다른 기기에서도 볼 수 있습니다.'+(syncOK?'':' (현재 서버에 연결되지 않아 이 기기에만 저장 중입니다.)')+'</div>';
   body.innerHTML=h; body.scrollTop=0;
 }
 $('rec-body').addEventListener('click',ev=>{
+  const rt=ev.target.closest('[data-rt]'); if(rt){ recTab=rt.dataset.rt; wrongFilter='all'; wrongMode='all'; cellState=null; renderRecords(); return; }
   const v=ev.target.closest('[data-v]'), d=ev.target.closest('[data-d]'), f=ev.target.closest('[data-f]');
   if(v){ const r=U.records.find(x=>x.no==v.dataset.v); showResult(r,false); }
-  if(d){ const no=+d.dataset.d; modal(no+'회차 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.',[['취소','sec'],['삭제','warn',()=>deleteRecord(no)]]); }
+  if(d){ const no=+d.dataset.d; modal(lab(U.records.find(x=>x.no===no)||{no:no})+' 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.',[['취소','sec'],['삭제','warn',()=>deleteRecord(no)]]); }
   if(f){ wrongFilter=f.dataset.f==='all'?'all':+f.dataset.f; cellState=null; renderWrong(); }
 });
 async function deleteRecord(no){
@@ -362,7 +376,7 @@ let accOpen={}, cellState=null, accScroll=0, wrongMode='all';
 function recMap(r){
   const wr={}; r.wrong.forEach(w=>{wr[w.q]=w.m;}); const fl=new Set(r.fl||[]);
   const ids=(r.qs&&r.qs.length)?r.qs:r.wrong.map(w=>w.q);
-  return ids.filter(id=>byId[id]).map((id,i)=>{ const bad=Object.prototype.hasOwnProperty.call(wr,id); return {id:id,i:i,no:r.no,m:bad?wr[id]:byId[id].ans,ok:!bad,fl:fl.has(id)}; });
+  return ids.filter(id=>byId[id]).map((id,i)=>{ const bad=Object.prototype.hasOwnProperty.call(wr,id); return {id:id,i:i,no:r.no,lab:lab(r),m:bad?wr[id]:byId[id].ans,ok:!bad,fl:fl.has(id)}; });
 }
 function recStats(r){
   const m={}, wr={}; r.wrong.forEach(w=>{wr[w.q]=1;});
@@ -392,18 +406,18 @@ function accPanel(cols,hasOld){
   return h+'</table></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
 }
 function accFor(filter){
-  const all=U.records.filter(r=>r.qs&&r.qs.length), hasOld=U.records.some(r=>!(r.qs&&r.qs.length));
+  const all=RS().filter(r=>r.qs&&r.qs.length), hasOld=RS().some(r=>!(r.qs&&r.qs.length));
   const tot={}; all.forEach(r=>{ const s=recStats(r); Object.keys(s).forEach(k=>{ const v=tot[k]=tot[k]||{c:0,t:0}; v.c+=s[k].c; v.t+=s[k].t; }); });
-  const mk=r=>({id:r.no,name:r.no+'회차<div class="note">'+r.period+'교시</div>',st:recStats(r)});
+  const mk=r=>({id:r.no,name:lab(r)+'<div class="note">'+r.period+'교시</div>',st:recStats(r)});
   let cols;
   if(filter==='all') cols=all.map(mk).concat([{id:'all',name:'전체 평균',st:tot}]);
-  else { const r=U.records.find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); cols.push({id:'all',name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
+  else { const r=RS().find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); cols.push({id:'all',name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
   return accPanel(cols,hasOld&&filter==='all');
 }
 function keyMatch(q,key){ const qk=q.subj+'|'+q.field+'|'+q.area; return qk===key||qk.startsWith(key+'|'); }
 function cellEntries(col,key){
   const m={}, order=[];
-  U.records.filter(r=>r.qs&&r.qs.length&&(col==='all'||r.no===+col)).forEach(r=>recMap(r).forEach(e=>{ if(keyMatch(byId[e.id],key)){ if(!m[e.id]){m[e.id]=[];order.push(e.id);} m[e.id].push(e);} }));
+  RS().filter(r=>r.qs&&r.qs.length&&(col==='all'||r.no===+col)).forEach(r=>recMap(r).forEach(e=>{ if(keyMatch(byId[e.id],key)){ if(!m[e.id]){m[e.id]=[];order.push(e.id);} m[e.id].push(e);} }));
   return order.map(id=>({q:byId[id],es:m[id]}));
 }
 function renderCell(){
@@ -413,7 +427,7 @@ function renderCell(){
   if(cs.col==='all') items.sort((a,b)=>Q.indexOf(a.q)-Q.indexOf(b.q)); else items.sort((a,b)=>a.es[0].i-b.es[0].i);
   const nWrong=items.filter(x=>x.es.some(e=>!e.ok)).length;
   const list=items.filter(x=>fm(cs.mode,x.es));
-  const title=(cs.col==='all'?'전체 평균':cs.col+'회차')+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
+  const title=(cs.col==='all'?'전체 평균':lab(U.records.find(r=>r.no===+cs.col)||{no:cs.col}))+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
   let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button></div>'+fchips('cm',cs.mode,items.map(x=>x.es))+'<div class="sechd">'+esc(title)+'</div>';
   if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
   list.forEach(x=>{ h+=qCard(x.q,x.es,{count:(cnts[x.q.id]||[]).length,showWhich:cs.col==='all'}); });
@@ -421,8 +435,8 @@ function renderCell(){
 }
 function renderWrong(){
   if(cellState) return renderCell();
-  const R=U.records, cnts=wrongCounts(), body=$('rec-body');
-  let h='<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+r.no+'회차·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
+  const R=RS(), cnts=wrongCounts(), body=$('rec-body');
+  let h=tabsHtml()+'<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+(r.real?'국시 '+r.real+'회':r.no+'회차')+'·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
   h+=accFor(wrongFilter);
   if(wrongFilter==='all'){
     const m={}; R.forEach(r=>recMap(r).forEach(e=>{(m[e.id]=m[e.id]||[]).push(e);}));
@@ -439,7 +453,7 @@ function renderWrong(){
     const cand=recMap(r), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
     const list=cand.filter(e=>fm(wrongMode,[e]));
     h+=fchips('wm',wrongMode,cand.map(e=>[e]));
-    h+='<div class="sechd">'+r.no+'회차 · '+r.period+'교시 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
+    h+='<div class="sechd">'+lab(r)+' · '+r.period+'교시 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
   }
@@ -503,19 +517,31 @@ $('adm-dl').onclick=()=>{ const t=$('adm-out').value; if(!t){ adminLog('먼저 "
 function showHome(){
   E=null; show('s-home'); $('home-id').textContent='학번 '+sid;
   $('h-admin').style.display=(sid===ADMIN)?'inline-block':'none';
-  const noQ=!Q.length; $('h-exam').disabled=noQ; $('h-rec').disabled=noQ;
+  const noQ=!Q.length; $('h-exam').disabled=noQ; $('h-real').disabled=noQ; $('h-rec').disabled=noQ;
   $('home-note').textContent=noQ?('문제 데이터를 불러오지 못했습니다. '+(qErr?'['+qErr+']':'')):(syncOK?'':'서버에 연결되지 않아 이 기기에만 저장 중입니다. 연결되면 자동으로 올라갑니다.');
   const ex=U&&U.exam; $('home-resume').style.display=ex?'block':'none';
-  if(ex) $('home-resume-t').textContent='진행 중인 시험: '+ex.period+'교시 · 남은 시간 '+fmtTime(ex.remaining)+' · 푼 문제 '+Object.keys(ex.ans).length+'/'+ex.qids.length;
+  if(ex) $('home-resume-t').textContent='진행 중인 시험: '+(ex.real?'국가고시 '+ex.real+'회 ':'')+ex.period+'교시 · 남은 시간 '+fmtTime(ex.remaining)+' · 푼 문제 '+Object.keys(ex.ans).length+'/'+ex.qids.length;
   retryPending();
 }
-function startNew(period){
-  const go=()=>{ U.exam=null; startExam(buildExam(period)); };
+function startNew(period,real){
+  const go=()=>{ U.exam=null; startExam(real?buildReal(real,period):buildExam(period)); };
   if(U.exam){ modal('진행 중인 시험이 있습니다.\n새로 시작하면 진행 중인 시험은 사라집니다.',[['취소','sec'],['새로 시작','warn',go]]); }
   else go();
 }
 $('h-exam').onclick=()=>show('s-pick');
-$('h-rec').onclick=showRecords;
+function renderReal(){
+  const rounds=[...new Set(Q.map(q=>parseInt(q.id)))].sort((a,b)=>a-b);
+  const best=(rd,p)=>{ const rs=U.records.filter(r=>r.real===rd&&r.period===p); if(!rs.length) return '아직 안 풂'; const l=rs[rs.length-1]; return '최근 '+l.correct+'/'+l.total+' ('+pct(l.correct,l.total)+'%) · '+rs.length+'회 응시'; };
+  let h='';
+  rounds.forEach(rd=>{ h+='<div class="card rcard"><h2>'+rd+'회</h2>';
+    [1,2].forEach(p=>{ const n=realQids(rd,p).length; h+='<div class="rp"><button class="bigbtn" data-real="'+rd+'" data-rp="'+p+'">'+p+'교시</button><div class="note">'+n+'문항 · '+PERIODS[p].min+'분<br>'+best(rd,p)+'</div></div>'; });
+    h+='</div>'; });
+  $('real-list').innerHTML=h;
+}
+$('h-real').onclick=()=>{ renderReal(); show('s-real'); };
+$('real-back').onclick=showHome;
+$('real-list').addEventListener('click',ev=>{ const b=ev.target.closest('[data-real]'); if(b) startNew(+b.dataset.rp,+b.dataset.real); });
+$('h-rec').onclick=()=>{ recTab='mock'; showRecords(); };
 $('h-logout').onclick=logout;
 $('h-pw').onclick=()=>{ $('pw-msg').textContent=''; show('s-pw'); };
 $('h-admin').onclick=showAdmin;

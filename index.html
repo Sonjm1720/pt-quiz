@@ -116,6 +116,11 @@ td.sn{text-align:left;font-weight:700}
 .box{border:calc(var(--u)*.25) solid #3b4a6b;border-radius:calc(var(--u)*.8);background:#fff;padding:calc(var(--u)*1.2) calc(var(--u)*1.6) calc(var(--u)*1.2) calc(var(--u)*1.4);margin-top:calc(var(--u)*.9)}
 .box ul{margin:0!important;padding-left:calc(var(--u)*2)!important}
 .box li{font-weight:500}
+.rlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:calc(var(--u)*1.2);width:100%;max-height:calc(var(--u)*46);overflow:auto;align-content:start}
+.rcard{text-align:left;padding:calc(var(--u)*1.2)}.rcard h2{margin:0 0 calc(var(--u)*.4);font-size:calc(var(--u)*2.4)}
+.rcard .rp{margin-top:calc(var(--u)*.8)}
+.rcard .rp .bigbtn{width:100%;min-width:0;box-sizing:border-box;margin:0;padding:calc(var(--u)*.9) 0;font-size:calc(var(--u)*2)}
+.rcard .rp .note{margin-top:calc(var(--u)*.4);text-align:center}
 </style>
 </head>
 <body>
@@ -144,7 +149,7 @@ td.sn{text-align:left;font-weight:700}
     <div style="font-weight:800" id="home-resume-t"></div>
     <div class="row" style="margin-top:calc(var(--u)*1.2)"><button class="ok" id="resume-go">이어서 풀기</button><button class="sec" id="resume-drop">이 시험 포기</button></div>
   </div>
-  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
+  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-real" style="background:#1f7a5c">국가 고시</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
   <div class="note" id="home-note" style="margin-top:calc(var(--u)*1.6);min-height:calc(var(--u)*2)"></div>
   <div class="row" style="margin-top:calc(var(--u)*1.6)"><button class="sec" id="h-pw">비밀번호 변경</button><button class="sec" id="h-logout">로그아웃</button><button class="sec" id="h-admin" style="display:none">관리자</button></div>
 </div>
@@ -185,6 +190,14 @@ td.sn{text-align:left;font-weight:700}
   </div>
   <div class="note" style="margin-top:calc(var(--u)*2)">1교시와 2교시는 따로 응시합니다. 의료관계법규는 기출 당시 기준입니다.</div>
   <div style="margin-top:calc(var(--u)*2)"><button class="sec" data-back="home">뒤로</button></div>
+</div>
+
+<!-- 국가고시 회차 선택 -->
+<div class="screen center" id="s-real">
+  <h1 style="margin-bottom:calc(var(--u)*1.6)">국가 고시</h1>
+  <div class="note" style="margin-bottom:calc(var(--u)*1.6)">실제 시험의 문제 번호와 순서 그대로 출제됩니다. 교시별로 따로 응시합니다.</div>
+  <div class="rlist" id="real-list"></div>
+  <div style="margin-top:calc(var(--u)*1.6)"><button class="sec" id="real-back">뒤로</button></div>
 </div>
 
 <!-- 시험 -->
