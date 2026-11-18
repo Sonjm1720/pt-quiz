@@ -22,7 +22,8 @@ const clean=o=>JSON.parse(JSON.stringify(o));
 const nowIso=()=>new Date().toISOString();
 function T(p,ms){ return Promise.race([Promise.resolve(p),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms||8000))]); }
 function fresh(){return {nextNo:1,records:[],exam:null,examAt:''};}
-function saveLocal(){ if(sid&&U){ if(E) U.exam=E; lsSet('ptq2:u:'+sid,U); } }
+let viewing=null, adminU=null;
+function saveLocal(){ if(viewing) return; if(sid&&U){ if(E) U.exam=E; lsSet('ptq2:u:'+sid,U); } }
 function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function stemHtml(s){ const p=s.split(' • '); if(p.length===1) return esc(s); return esc(p[0])+'<div class="box"><ul>'+p.slice(1).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'; }
@@ -336,10 +337,10 @@ $('res-body').addEventListener('click',ev=>{
 let recView='main', wrongFilter='all';
 function showRecords(){
   show('s-rec'); recView='main';
-  $('rec-title').textContent='기록 · '+sid;
+  $('rec-title').textContent=viewing?('학생 '+viewing+' 기록 · 읽기 전용'):('기록 · '+sid);
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add('홈','sec',showHome);
+  add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
   renderRecords();
 }
 function tabsHtml(){ return '<div class="chips"><button data-rt="mock" class="'+(recTab==='mock'?'on':'')+'">모의시험</button><button data-rt="real" class="'+(recTab==='real'?'on':'')+'">국가고시</button></div>'; }
@@ -353,7 +354,7 @@ function renderRecords(){
   if(!R.length) h+='<div class="card">'+(recTab==='real'?'국가 고시를 풀면':'모의 시험을 보면')+' 여기에 기록됩니다.</div>';
   R.slice().reverse().forEach(r=>{
     const parts=PERIODS[r.period].subs.map(s=>{const v=r.subj[s]||{c:0,t:0}; return s+' '+pct(v.c,v.t)+'% '+chip(v.c,v.t);}).join(' · ');
-    h+='<div class="card rec"><div><div class="t">'+lab(r)+' · '+r.period+'교시 &nbsp; '+r.correct+' / '+r.total+' ('+pct(r.correct,r.total)+'%)</div><div class="d">'+fmtDate(r.at)+(r.auto?' · 시간 종료':'')+(r.pending?' · 서버 저장 대기':'')+'</div><div class="d">'+parts+'</div></div><div class="row"><button class="sec" data-v="'+r.no+'">상세</button><button class="warn" data-d="'+r.no+'">삭제</button></div></div>';
+    h+='<div class="card rec"><div><div class="t">'+lab(r)+' · '+r.period+'교시 &nbsp; '+r.correct+' / '+r.total+' ('+pct(r.correct,r.total)+'%)</div><div class="d">'+fmtDate(r.at)+(r.auto?' · 시간 종료':'')+(r.pending?' · 서버 저장 대기':'')+'</div><div class="d">'+parts+'</div></div><div class="row"><button class="sec" data-v="'+r.no+'">상세</button>'+(viewing?'':'<button class="warn" data-d="'+r.no+'">삭제</button>')+'</div></div>';
   });
   h+='<div class="note" style="margin-top:calc(var(--u)*1.2)">기록은 학번·비밀번호로 서버에 저장되어 다른 기기에서도 볼 수 있습니다.'+(syncOK?'':' (현재 서버에 연결되지 않아 이 기기에만 저장 중입니다.)')+'</div>';
   body.innerHTML=h; body.scrollTop=0;
@@ -366,6 +367,7 @@ $('rec-body').addEventListener('click',ev=>{
   if(f){ wrongFilter=f.dataset.f==='all'?'all':+f.dataset.f; cellState=null; renderWrong(); }
 });
 async function deleteRecord(no){
+  if(viewing) return;
   const r=U.records.find(x=>x.no===no); if(!r) return;
   if(!r.pending){ try{ await T(DB.delRecord(sid,no)); }catch(e){ modal('서버에 연결할 수 없어 삭제하지 못했습니다.\n인터넷에 연결한 뒤 다시 시도해 주세요.',[['확인','']]); return; } }
   U.records=U.records.filter(x=>x.no!==no); saveLocal(); if(wrongFilter===no) wrongFilter='all'; renderRecords();
@@ -483,8 +485,42 @@ $('pw-back').onclick=()=>showHome();
 
 /* ---------- 관리자 ---------- */
 function adminLog(t){ $('adm-log').textContent=t; }
-function showAdmin(){ show('s-admin'); adminLog('현재 이 기기에 불러온 문제: '+Q.length+'문항'); $('adm-out').value=''; }
+function showAdmin(){ show('s-admin'); renderStu(); adminLog('현재 이 기기에 불러온 문제: '+Q.length+'문항'); $('adm-out').value=''; }
 $('adm-back').onclick=()=>showHome();
+const STU_DEF=['2426048','2426047','2426040','2426004','2426067','2426039','2426066','2426023','2426033'];
+function stuList(){ const l=lsGet('ptq2:adm:list'); return Array.isArray(l)&&l.length?l:STU_DEF.slice(); }
+let stuData={};
+function exitView(){ viewing=null; if(adminU){ U=adminU; adminU=null; } recTab='mock'; show('s-admin'); renderStu(); }
+async function loadStu(){
+  const list=stuList(); $('stu-out').innerHTML='<div class="small">불러오는 중…</div>'; stuData={};
+  await Promise.all(list.map(async id=>{
+    try{ const u=await T(DB.getUser(id),10000); const r=await T(DB.getRecords(id),10000); stuData[id]={u:u||{},r:r||[],ok:true,had:!!u||(r&&r.length>0)}; }
+    catch(e){ stuData[id]={ok:false,err:(e&&(e.code||e.message))||String(e)}; }
+  }));
+  renderStu();
+}
+function renderStu(){
+  const list=stuList(); $('stu-ids').value=list.join(' ');
+  let h='<table><tr><th style="text-align:left">학번</th><th>마지막 활동</th><th>모의시험</th><th>국가고시</th><th style="text-align:left">진행 중인 시험</th><th></th></tr>';
+  list.forEach(id=>{ const d=stuData[id];
+    if(!d){ h+='<tr><td class="sn">'+esc(id)+'</td><td colspan="5">아직 불러오지 않았습니다.</td></tr>'; return; }
+    if(!d.ok){ h+='<tr><td class="sn">'+esc(id)+'</td><td colspan="5">불러오지 못했습니다 ('+esc(d.err)+')</td></tr>'; return; }
+    const rs=d.r, mock=rs.filter(r=>!r.real).length, real=rs.filter(r=>r.real).length;
+    const last=Math.max(d.u.examAt?Date.parse(d.u.examAt)||0:0,...rs.map(r=>Date.parse(r.at)||0));
+    const ex=d.u.exam; let exs='-';
+    if(ex) exs=(ex.real?'국가고시 '+ex.real+'회 ':'')+ex.period+'교시 · 푼 '+Object.keys(ex.ans||{}).length+'/'+(ex.qids||[]).length+' · 남은 '+fmtTime(ex.remaining||0)+(ex.paused?' (멈춤)':'')+' · 저장 '+fmtDate(d.u.examAt||ex.startedAt);
+    h+='<tr><td class="sn">'+esc(id)+'</td><td>'+(last?fmtDate(new Date(last).toISOString()):(d.had?'-':'기록 없음'))+'</td><td>'+mock+'회</td><td>'+real+'회</td><td style="text-align:left">'+esc(exs)+'</td><td><button class="sec" data-sv="'+esc(id)+'">기록 보기</button></td></tr>';
+  });
+  $('stu-out').innerHTML=h+'</table>';
+}
+$('stu-load').onclick=loadStu;
+$('stu-save').onclick=()=>{ const l=[...new Set($('stu-ids').value.split(/[\s,]+/).filter(x=>/^[0-9]{7}$/.test(x)))]; lsSet('ptq2:adm:list',l.length?l:STU_DEF); renderStu(); };
+$('stu-out').addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-sv]'); if(!b) return; const id=b.dataset.sv, d=stuData[id]; if(!d||!d.ok) return;
+  adminU=U; viewing=id;
+  U=Object.assign(fresh(),{records:d.r.map(r=>Object.assign({wrong:[]},r)).sort((a,b)=>a.no-b.no),nextNo:1,exam:null});
+  recTab='mock'; wrongFilter='all'; wrongMode='all'; cellState=null; showRecords();
+});
 $('adm-up').onclick=()=>{ const f=$('adm-file').files[0]; if(!f){ adminLog('문제 데이터 파일(questions_upload.json)을 먼저 선택해 주세요.'); return; }
   const rd=new FileReader(); rd.onload=async()=>{
     try{
