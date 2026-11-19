@@ -561,7 +561,7 @@ $('adm-dl').onclick=()=>{ const t=$('adm-out').value; if(!t){ adminLog('먼저 "
 function showHome(){
   E=null; show('s-home'); $('home-id').textContent='학번 '+sid;
   $('h-admin').style.display=(sid===ADMIN)?'inline-block':'none';
-  const noQ=!Q.length; $('h-exam').disabled=noQ; $('h-real').disabled=noQ; $('h-rec').disabled=noQ;
+  const noQ=!Q.length; $('h-exam').disabled=noQ; $('h-real').disabled=noQ; $('h-quiz').disabled=noQ; $('h-rec').disabled=noQ;
   $('home-note').textContent=noQ?('문제 데이터를 불러오지 못했습니다. '+(qErr?'['+qErr+']':'')):(syncOK?'':'서버에 연결되지 않아 이 기기에만 저장 중입니다. 연결되면 자동으로 올라갑니다.');
   const ex=U&&U.exam; $('home-resume').style.display=ex?'block':'none';
   if(ex) $('home-resume-t').textContent='진행 중인 시험: '+(ex.real?'국가고시 '+ex.real+'회 ':'')+ex.period+'교시 · 남은 시간 '+fmtTime(ex.remaining)+' · 푼 문제 '+Object.keys(ex.ans).length+'/'+ex.qids.length;
@@ -594,6 +594,137 @@ document.querySelector('[data-back]').onclick=showHome;
 $('resume-go').onclick=()=>{ const ex=U.exam; ex.paused=true; startExam(ex); };
 $('resume-drop').onclick=()=>modal('진행 중인 시험을 포기할까요?\n기록에는 남지 않습니다.',[['취소','sec'],['포기','warn',()=>{U.exam=null; U.examAt=nowIso(); E=null; saveLocal(); lastPush=0; pushExam(); showHome();}]]);
 
+/* ---------- 과목별 퀴즈 (해설은 여기서만 보임 · 기록 저장 안 함) ---------- */
+const SUBJS=['기초','진단평가','중재','법규'];
+let X=null, QZ=null, qsSel=new Set();
+async function ensureExpl(){
+  if(X) return true;
+  const cache=lsGet('ptq2:x'); let meta=null, off=false;
+  if(!DB.getExplMeta) { if(cache){X=cache.items; return true;} return false; }
+  try{ meta=await T(DB.getExplMeta(),15000); }catch(e){ off=true; }
+  if(cache&&(off||(meta&&cache.version===meta.version))){ X=cache.items; return true; }
+  if(meta){ try{ const d=await T(DB.getExpl(),30000); if(d&&d.items&&Object.keys(d.items).length){ lsSet('ptq2:x',d); X=d.items; return true; } }catch(e){} }
+  if(cache){ X=cache.items; return true; }
+  return false;
+}
+const akey=q=>q.subj+'|'+q.field+'|'+q.area;
+function quizTree(){
+  const t={};
+  Q.forEach(q=>{ ((t[q.subj]=t[q.subj]||{})[q.field]=t[q.subj][q.field]||{})[q.area]=(t[q.subj][q.field][q.area]||0)+1; });
+  return SUBJS.filter(s=>t[s]).map(s=>({s,fields:Object.keys(t[s]).sort((a,b)=>ordF(s,a)-ordF(s,b)).map(f=>({f,areas:Object.keys(t[s][f]).sort((a,b)=>ordA(s,f,a)-ordA(s,f,b)).map(a=>({a,n:t[s][f][a],k:s+'|'+f+'|'+a}))}))}));
+}
+function renderQsel(){
+  let h='';
+  quizTree().forEach(S=>{
+    const all=S.fields.flatMap(F=>F.areas), on=all.every(A=>qsSel.has(A.k));
+    h+='<div class="card qs-subj"><h2>'+esc(S.s)+' <button class="qs-all'+(on?' on':'')+'" data-ks="'+esc(all.map(A=>A.k).join('\n'))+'">과목 전체</button><span class="note">'+all.reduce((x,A)=>x+A.n,0)+'문항</span></h2>';
+    S.fields.forEach(F=>{ const fon=F.areas.every(A=>qsSel.has(A.k));
+      h+='<div class="qs-fld"><div class="sechd">'+esc(F.f)+' <button class="qs-all'+(fon?' on':'')+'" data-ks="'+esc(F.areas.map(A=>A.k).join('\n'))+'">분야 전체</button></div><div class="chips">';
+      F.areas.forEach(A=>{ h+='<button class="'+(qsSel.has(A.k)?'on':'')+'" data-k="'+esc(A.k)+'">'+esc(A.a)+'<span class="c">'+A.n+'</span></button>'; });
+      h+='</div></div>'; });
+    h+='</div>';
+  });
+  const st=$('qs-body').scrollTop; $('qs-body').innerHTML=h; $('qs-body').scrollTop=st;
+  const n=Q.filter(q=>qsSel.has(akey(q))).length;
+  $('qs-cnt').textContent=qsSel.size?('영역 '+qsSel.size+'개 · '+n+'문항 (무작위 순서)'):'풀고 싶은 분야나 영역을 고르세요 (여러 개 가능)';
+  $('qs-go').disabled=!n;
+}
+$('qs-body').addEventListener('click',ev=>{
+  const g=ev.target.closest('[data-ks]'), b=ev.target.closest('[data-k]');
+  if(g){ const ks=g.dataset.ks.split('\n'), on=ks.every(k=>qsSel.has(k)); ks.forEach(k=>on?qsSel.delete(k):qsSel.add(k)); renderQsel(); }
+  else if(b){ const k=b.dataset.k; qsSel.has(k)?qsSel.delete(k):qsSel.add(k); renderQsel(); }
+});
+$('qs-clear').onclick=()=>{ qsSel.clear(); renderQsel(); };
+$('qs-back').onclick=showHome;
+$('qs-go').onclick=()=>startQuiz(Q.filter(q=>qsSel.has(akey(q))).map(q=>q.id),'선택한 영역');
+async function openQuiz(){
+  if(!X){ loading('해설을 불러오는 중…'); const ok=await ensureExpl(); if(!ok) modal('해설 데이터를 불러오지 못했습니다.\n문제와 정답은 풀 수 있지만 해설은 보이지 않습니다.',[['확인','ok']]); }
+  show('s-qsel'); renderQsel(); $('qs-body').scrollTop=0;
+}
+$('h-quiz').onclick=openQuiz;
+function startQuiz(ids,name){
+  QZ={ids:shuffle(ids),i:0,sel:null,checked:false,log:[],name};
+  show('s-quiz'); renderQuiz();
+}
+function xpHtml(q,ok){
+  const x=X&&X[q.id];
+  let h='<div class="xp '+(ok?'ok':'bad')+'"><div class="xv">'+(ok?'정답입니다':'오답입니다 · 정답 '+'①②③④⑤'[q.ans])+'</div>';
+  if(x){
+    h+='<div>'+x.kw.map(k=>'<span class="kw">'+esc(k)+'</span>').join('')+'</div>';
+    h+='<p><span class="xl">해설</span>'+esc(x.why)+'</p>';
+    if(x.trap) h+='<p><span class="xl">함정</span>'+esc(x.trap)+'</p>';
+    if(x.ref) h+='<p class="ref">'+esc(x.ref)+'</p>';
+  } else h+='<p class="note">이 문제의 해설을 불러오지 못했습니다.</p>';
+  h+='<div class="note">개념정리본 '+pgLabel(q)+(q.subj==='법규'?' · 문제와 정답은 기출 당시 기준':'')+'</div></div>';
+  return h;
+}
+function renderQuiz(){
+  const q=byId[QZ.ids[QZ.i]], n=QZ.i+1, done=QZ.checked;
+  $('qz-title').innerHTML='과목별 퀴즈 · <b>'+n+'</b> / '+QZ.ids.length+'<span class="src">기출 '+esc(q.id)+'</span>';
+  const c=QZ.log.filter(e=>e.ok).length; $('qz-score').textContent='맞힘 '+c+' / '+QZ.log.length;
+  let h='<div class="qmeta">'+esc(q.subj)+' · '+esc(q.field)+' · '+esc(q.area)+'</div><div class="stem">'+stemHtml(q.stem)+'</div>';
+  q.opts.forEach((o,i)=>{ let cl='opt';
+    if(done){ cl+=' done'; if(i===q.ans) cl+=' r'; else if(i===QZ.sel) cl+=' w'; }
+    else if(QZ.sel===i) cl+=' sel';
+    h+='<div class="'+cl+'" data-i="'+i+'"><span class="n">'+'①②③④⑤'[i]+'</span><span>'+esc(o)+'</span></div>'; });
+  if(done) h+=xpHtml(q,QZ.sel===q.ans);
+  const qb=$('qz-body'); qb.innerHTML=h; qb.scrollTop=0;
+  const last=QZ.i===QZ.ids.length-1, b=$('qz-go');
+  if(!done){ b.textContent='정답 확인'; b.className=''; b.disabled=QZ.sel===null; }
+  else { b.textContent=last?'결과 보기':'다음'; b.className='ok'; b.disabled=false; }
+  $('qz-cnt').textContent=done?'':'답을 고른 뒤 "정답 확인"을 누르세요';
+}
+$('qz-body').addEventListener('click',ev=>{
+  const o=ev.target.closest('.opt'); if(!o||!QZ||QZ.checked) return; const i=+o.dataset.i;
+  QZ.sel=(QZ.sel===i)?null:i; renderQuiz();
+});
+$('qz-go').onclick=()=>{
+  if(!QZ) return; const q=byId[QZ.ids[QZ.i]];
+  if(!QZ.checked){ if(QZ.sel===null) return; QZ.checked=true; QZ.log.push({id:q.id,ok:QZ.sel===q.ans}); renderQuiz(); const xp=$('qz-body').querySelector('.xp'); if(xp) xp.scrollIntoView({block:'nearest'}); return; }
+  if(QZ.i<QZ.ids.length-1){ QZ.i++; QZ.sel=null; QZ.checked=false; renderQuiz(); } else showQres();
+};
+$('qz-stop').onclick=()=>modal('여기까지 풀고 결과를 볼까요?\n'+(QZ.checked?'':'지금 문제는 정답 확인 전이라 결과에 들어가지 않습니다.\n')+'결과는 저장되지 않습니다.',[['계속 풀기','sec'],['결과 보기','ok',showQres]]);
+function showQres(){
+  const L=QZ.log, c=L.filter(e=>e.ok).length, t=L.length;
+  let h='<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-size:calc(var(--u)*2.6);font-weight:800">점수 '+c+' / '+t+' · 정답률 '+pct(c,t)+'%</div>'
+    +'<div class="note" style="margin-top:calc(var(--u)*.6)">'+esc(QZ.name)+' · 전체 '+QZ.ids.length+'문항 중 '+t+'문항 풂 · 이 결과는 저장되지 않습니다.</div></div>';
+  if(!t) h+='<div class="card">푼 문제가 없습니다.</div>';
+  else{
+    const W=L.filter(e=>!e.ok).map(e=>byId[e.id]), G={};
+    W.forEach(q=>{ (G[akey(q)]=G[akey(q)]||[]).push(q); });
+    const per={}; L.forEach(e=>{ const k=akey(byId[e.id]); per[k]=per[k]||[0,0]; per[k][1]++; if(e.ok) per[k][0]++; });
+    const keys=Object.keys(G).sort((a,b)=>{ const [s1,f1,a1]=a.split('|'), [s2,f2,a2]=b.split('|'); return SUBJS.indexOf(s1)-SUBJS.indexOf(s2)||ordF(s1,f1)-ordF(s2,f2)||ordA(s1,f1,a1)-ordA(s2,f2,a2); });
+    h+='<div class="sechd">틀린 문제 '+W.length+'개 · 영역별</div>';
+    if(!keys.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
+    keys.forEach(k=>{ const [s,f,a]=k.split('|'), n=Q.filter(q=>akey(q)===k).length;
+      h+='<div class="qa"><div class="hd"><div><b>'+esc(a)+'</b> <span class="note">'+esc(s)+' · '+esc(f)+' · 이번에 '+per[k][0]+'/'+per[k][1]+' 맞힘</span></div><button data-ra="'+esc(k)+'">이 영역 전체 다시 풀기 ('+n+'문항)</button></div>';
+      G[k].forEach(q=>{ const x=X&&X[q.id], st=q.stem.split(' • ')[0];
+        h+='<div class="wi"><div class="s"><span class="src" style="margin-left:0">기출 '+esc(q.id)+'</span> '+esc(st.length>60?st.slice(0,60)+'…':st)+'</div>'+(x?x.kw.map(w=>'<span class="kw">'+esc(w)+'</span>').join(''):'')+'</div>'; });
+      h+='</div>'; });
+  }
+  $('qr-body').innerHTML=h; show('s-qres'); $('qr-body').scrollTop=0;
+}
+$('qr-body').addEventListener('click',ev=>{ const b=ev.target.closest('[data-ra]'); if(!b) return; const k=b.dataset.ra; startQuiz(Q.filter(q=>akey(q)===k).map(q=>q.id),k.split('|')[2]+' 전체 다시 풀기'); });
+$('qr-again').onclick=()=>{ QZ=null; show('s-qsel'); renderQsel(); };
+$('qr-home').onclick=()=>{ QZ=null; showHome(); };
+
+/* ---------- 관리자: 해설 업로드 ---------- */
+$('adm-eup').onclick=async()=>{
+  const f=$('adm-efile').files[0]; if(!f){ adminLog('explanations_upload.json 파일을 먼저 골라 주세요.'); return; }
+  if(!Q.length){ adminLog('문제 데이터가 없습니다. 문제 데이터를 먼저 올려 주세요.'); return; }
+  let d; try{ d=JSON.parse(await f.text()); }catch(e){ adminLog('파일을 읽지 못했습니다: '+e.message); return; }
+  if(!d||!d.version||!d.items||typeof d.items!=='object'){ adminLog('해설 파일 형식이 아닙니다 (version, items 필요).'); return; }
+  const by={}, unknown=[];
+  Object.keys(d.items).forEach(id=>{ const q=byId[id], x=d.items[id]; if(!q){ unknown.push(id); return; }
+    const o={id,kw:x.kw||[],why:x.why||'',trap:x.trap||''}; if(x.ref) o.ref=x.ref; (by[q.subj]=by[q.subj]||[]).push(o); });
+  const n=Object.values(by).reduce((s,a)=>s+a.length,0), miss=Q.filter(q=>!d.items[q.id]).length;
+  adminLog('해설 올리는 중… ('+n+'개)');
+  try{ await DB.adminWriteExpl({version:d.version,by,count:n}); X=null; lsSet('ptq2:x',null);
+    adminLog('해설 올리기 완료: '+n+'개 · 버전 '+d.version+(miss?'\n해설 없는 문제: '+miss+'개':'')+(unknown.length?'\n문제 데이터에 없는 번호(건너뜀): '+unknown.length+'개 '+unknown.slice(0,5).join(', '):''));
+  }catch(e){ adminLog('해설 올리기 실패: '+((e&&(e.code||e.message))||e)); }
+};
+$('adm-echk').onclick=async()=>{ try{ const m=await T(DB.getExplMeta(),15000); adminLog(m?('서버 해설: '+m.count+'개 · 버전 '+m.version):'서버에 해설 데이터가 아직 없습니다.'); }catch(e){ adminLog('확인 실패: '+((e&&(e.code||e.message))||e)); } };
+
 /* ---------- Firebase 연결 ---------- */
 async function makeFirebaseDB(cfg){
   const base='https://www.gstatic.com/firebasejs/10.14.1/';
@@ -614,6 +745,16 @@ async function makeFirebaseDB(cfg){
       for(const s of SUBJ){ const d=await F.getDoc(F.doc(fs,'questions',s)); if(d.exists()) items=items.concat(d.data().items); }
       const q=await F.getDoc(F.doc(fs,'questions','quota'));
       return {version:meta.version,items:items,quota:q.data().rows};
+    },
+    async getExplMeta(){ const d=await F.getDoc(F.doc(fs,'questions','expl_meta')); return d.exists()?d.data():null; },
+    async getExpl(){
+      const meta=(await F.getDoc(F.doc(fs,'questions','expl_meta'))).data(); const items={};
+      for(const s of SUBJ){ const d=await F.getDoc(F.doc(fs,'questions','expl_'+s)); if(d.exists()) d.data().items.forEach(o=>{ const {id,...r}=o; items[id]=r; }); }
+      return {version:meta.version,items};
+    },
+    async adminWriteExpl(d){
+      for(const s of Object.keys(d.by)) await F.setDoc(F.doc(fs,'questions','expl_'+s),{items:clean(d.by[s])});
+      await F.setDoc(F.doc(fs,'questions','expl_meta'),{version:d.version,count:d.count});
     },
     async getUser(s){ const d=await F.getDoc(F.doc(fs,'users',s)); return d.exists()?d.data():null; },
     async getRecords(s){ const r=await F.getDocs(F.collection(fs,'users',s,'records')); return r.docs.map(d=>d.data()); },

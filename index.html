@@ -128,6 +128,32 @@ td.sn{text-align:left;font-weight:700}
 .rcard .rp{margin-top:calc(var(--u)*.8)}
 .rcard .rp .bigbtn{width:100%;min-width:0;box-sizing:border-box;margin:0;padding:calc(var(--u)*.9) 0;font-size:calc(var(--u)*2)}
 .rcard .rp .note{margin-top:calc(var(--u)*.4);text-align:center}
+/* quiz */
+#s-home .row .bigbtn{min-width:calc(var(--u)*20);padding:calc(var(--u)*2.4) calc(var(--u)*3)}
+.qs-subj{margin-bottom:calc(var(--u)*1.4)}
+.qs-subj h2{display:flex;align-items:center;gap:calc(var(--u)*1);font-size:calc(var(--u)*2.4)}
+.qs-fld{margin-top:calc(var(--u)*1)}
+.qs-fld .sechd{display:flex;align-items:center;gap:calc(var(--u)*1);margin:0 0 calc(var(--u)*.6)}
+.qs-all{background:#e3e8f2;color:#27304a;padding:calc(var(--u)*.3) calc(var(--u)*1.2);font-size:calc(var(--u)*1.5);font-weight:700}
+.qs-all.on{background:#2457c5;color:#fff}
+.chips button .c{opacity:.75;font-weight:500;margin-left:calc(var(--u)*.4)}
+.opt.r{border-color:#2e9e5b;background:#e3f6ea}
+.opt.w{border-color:#d64545;background:#fdeaea}
+.opt.done{cursor:default}
+.xp{background:#fff;border-radius:calc(var(--u)*1.2);padding:calc(var(--u)*1.6);margin-top:calc(var(--u)*1.4);border-left:calc(var(--u)*.8) solid #2e9e5b}
+.xp.bad{border-left-color:#d64545}
+.xp .xv{font-weight:800;font-size:calc(var(--u)*2.2);margin-bottom:calc(var(--u)*.8)}
+.xp.ok .xv{color:#1f7a45}.xp.bad .xv{color:#c03434}
+.xp .xl{font-weight:800;color:#3b4a6b;margin-right:calc(var(--u)*.6)}
+.xp p{margin:calc(var(--u)*.7) 0;font-size:calc(var(--u)*1.95);line-height:1.55}
+.xp p.ref{background:#fff4d6;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.8) calc(var(--u)*1)}
+.kw{display:inline-block;background:#e7efff;color:#1d3f8f;font-weight:700;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.1) calc(var(--u)*1);margin:0 calc(var(--u)*.6) calc(var(--u)*.4) 0;font-size:calc(var(--u)*1.7)}
+.qmeta{font-size:calc(var(--u)*1.6);color:#5b667f;margin-bottom:calc(var(--u)*1)}
+.qa{background:#fff;border-radius:calc(var(--u)*1.2);padding:calc(var(--u)*1.6);margin-bottom:calc(var(--u)*1.4)}
+.qa .hd{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*1);margin-bottom:calc(var(--u)*.8)}
+.qa .hd b{font-size:calc(var(--u)*2.1)}
+.qa .wi{border-top:calc(var(--u)*.15) solid #e4e9f3;padding:calc(var(--u)*.8) 0}
+.qa .wi .s{font-size:calc(var(--u)*1.7);color:#46506b;margin-bottom:calc(var(--u)*.4)}
 </style>
 </head>
 <body>
@@ -156,7 +182,7 @@ td.sn{text-align:left;font-weight:700}
     <div style="font-weight:800" id="home-resume-t"></div>
     <div class="row" style="margin-top:calc(var(--u)*1.2)"><button class="ok" id="resume-go">이어서 풀기</button><button class="sec" id="resume-drop">이 시험 포기</button></div>
   </div>
-  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-real" style="background:#1f7a5c">국가 고시</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
+  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-real" style="background:#1f7a5c">국가 고시</button><button class="bigbtn" id="h-quiz" style="background:#8a4fc4">과목별 퀴즈</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
   <div class="note" id="home-note" style="margin-top:calc(var(--u)*1.6);min-height:calc(var(--u)*2)"></div>
   <div class="row" style="margin-top:calc(var(--u)*1.6)"><button class="sec" id="h-pw">비밀번호 변경</button><button class="sec" id="h-logout">로그아웃</button><button class="sec" id="h-admin" style="display:none">관리자</button></div>
 </div>
@@ -178,6 +204,11 @@ td.sn{text-align:left;font-weight:700}
       <div class="sechd" style="margin-top:0">1. 문제 데이터 올리기</div>
       <div class="small" style="margin-bottom:calc(var(--u)*1)">questions_upload.json 파일을 고른 뒤 올리기를 누릅니다. 처음 한 번만 하면 됩니다.</div>
       <input type="file" id="adm-file" accept=".json,application/json"> <button id="adm-up">올리기</button> <button class="sec" id="adm-chk">서버 확인</button>
+    </div>
+    <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
+      <div class="sechd" style="margin-top:0">1-2. 해설 데이터 올리기</div>
+      <div class="small" style="margin-bottom:calc(var(--u)*1)">explanations_upload.json 파일을 고른 뒤 올리기를 누릅니다. 해설은 과목별 퀴즈에서만 보입니다. 문제 데이터를 먼저 올린 뒤에 올려 주세요.</div>
+      <input type="file" id="adm-efile" accept=".json,application/json"> <button id="adm-eup">해설 올리기</button> <button class="sec" id="adm-echk">해설 서버 확인</button>
     </div>
     <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
       <div class="sechd" style="margin-top:0">학생 현황 (읽기 전용 · 학생에게는 표시되지 않음)</div>
@@ -249,6 +280,30 @@ td.sn{text-align:left;font-weight:700}
 <div class="screen" id="s-rec">
   <div class="top"><h2 id="rec-title">기록</h2><div class="row" id="rec-btns"></div></div>
   <div class="scroll" id="rec-body"></div>
+</div>
+
+<!-- 과목별 퀴즈: 영역 선택 -->
+<div class="screen" id="s-qsel">
+  <div class="top"><h2>과목별 퀴즈 · 영역 선택</h2><div class="row"><button class="sec" id="qs-clear">선택 해제</button><button class="sec" id="qs-back">홈</button></div></div>
+  <div class="scroll" id="qs-body"></div>
+  <div class="ftr"><span class="cnt" id="qs-cnt"></span><button class="ok" id="qs-go" disabled>시작</button></div>
+</div>
+
+<!-- 과목별 퀴즈: 풀이 -->
+<div class="screen" id="s-quiz">
+  <div class="hdr">
+    <div class="l"><button class="sec" id="qz-stop">여기까지 풀기</button></div>
+    <div class="m" id="qz-title"></div>
+    <div class="r" id="qz-score" style="font-weight:700;color:#46506b"></div>
+  </div>
+  <div class="body" id="qz-body"></div>
+  <div class="ftr"><span class="cnt" id="qz-cnt"></span><button id="qz-go" disabled>정답 확인</button></div>
+</div>
+
+<!-- 과목별 퀴즈: 결과 -->
+<div class="screen" id="s-qres">
+  <div class="top"><h2>과목별 퀴즈 결과</h2><div class="row"><button id="qr-again">영역 다시 고르기</button><button class="sec" id="qr-home">홈</button></div></div>
+  <div class="scroll" id="qr-body"></div>
 </div>
 
 <div class="ov modal" id="modal"><div class="box"><p id="modal-t"></p><div class="row" id="modal-b"></div></div></div>
