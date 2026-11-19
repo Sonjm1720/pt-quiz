@@ -304,9 +304,9 @@ function showResult(rec,justDone){
   else add('기록으로','sec',()=>showRecords());
   renderResultBody(); $('res-body').scrollTop=0;
 }
-const FM=[['all','전체'],['right','맞힌 문제'],['wrong','틀린 문제'],['fok','다시 확인-정답'],['fbad','다시 확인-오답']];
-function fm(k,es){ if(k==='all') return true; if(k==='right') return es.some(e=>e.ok); if(k==='wrong') return es.some(e=>!e.ok); if(k==='fok') return es.some(e=>e.fl&&e.ok); if(k==='fbad') return es.some(e=>e.fl&&!e.ok); return true; }
-function fchips(attr,cur,groups){ return '<div class="chips">'+FM.map(p=>'<button data-'+attr+'="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'">'+p[1]+' '+groups.filter(g=>fm(p[0],g)).length+'</button>').join('')+'</div>'; }
+const FM=[['all','전체'],['right','정답'],['fok','정답-확인'],['fbad','오답-확인'],['fnone','오답-확인X'],['many','많이 틀린 문제']];
+function fm(k,es){ if(k==='all') return true; if(k==='right') return es.some(e=>e.ok); if(k==='wrong') return es.some(e=>!e.ok); if(k==='fok') return es.some(e=>e.fl&&e.ok); if(k==='fbad') return es.some(e=>e.fl&&!e.ok); if(k==='fnone') return es.some(e=>!e.ok&&!e.fl); if(k==='many') return es.filter(e=>!e.ok).length>=2; return true; }
+function fchips(attr,cur,groups,many){ return '<div class="chips">'+FM.filter(p=>p[0]!=='many'||many).map(p=>'<button data-'+attr+'="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'">'+p[1]+' '+groups.filter(g=>fm(p[0],g)).length+'</button>').join('')+'</div>'; }
 function renderResultBody(){
   const rec=resRec, rows=PERIODS[rec.period].subs.map(s=>[s,rec.subj[s]||{c:0,t:0}]);
   const es=recMap(rec), hasAll=!!(rec.qs&&rec.qs.length), cnts=wrongCounts();
@@ -340,7 +340,7 @@ function showRecords(){
   $('rec-title').textContent=viewing?('학생 '+viewing+' 기록 · 읽기 전용'):('기록 · '+sid);
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  add('틀린 문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
+  add('문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
   renderRecords();
 }
 function tabsHtml(){ return '<div class="chips"><button data-rt="mock" class="'+(recTab==='mock'?'on':'')+'">모의시험</button><button data-rt="real" class="'+(recTab==='real'?'on':'')+'">국가고시</button></div>'; }
@@ -387,7 +387,14 @@ function recStats(r){
   return m;
 }
 function accCell(v){ return v&&v.t? '<b>'+pct(v.c,v.t)+'%</b><div class="note">'+v.c+'/'+v.t+'</div>' : '-'; }
-function vcell(c,k){ const v=c.st[k]; return v&&v.t? '<td class="v" data-c="'+c.id+'" data-k="'+esc(k)+'">'+accCell(v)+'</td>' : '<td>-</td>'; }
+function vcell(c,k){ const v=c.st[k], av=c.id==='all'?' av':''; return v&&v.t? '<td class="v'+av+'" data-c="'+c.id+'" data-k="'+esc(k)+'">'+accCell(v)+'</td>' : '<td'+(av?' class="av"':'')+'>-</td>'; }
+function setupAccSlider(){
+  const w=document.querySelector('#rec-body .accwrap'), r=document.getElementById('acc-slider'); if(!w||!r) return;
+  const upd=()=>{ const max=w.scrollWidth-w.clientWidth; r.parentNode.style.display=max>8?'flex':'none'; r.max=Math.max(0,max); r.value=w.scrollLeft; };
+  w.addEventListener('scroll',()=>{ r.value=w.scrollLeft; });
+  r.addEventListener('input',()=>{ w.scrollLeft=+r.value; });
+  upd(); setTimeout(upd,60);
+}
 function accPanel(cols,hasOld){
   const keys={}; cols.forEach(c=>Object.keys(c.st).forEach(k=>{keys[k]=1;}));
   const subs=['기초','진단평가','중재','법규'].filter(s=>keys[s]);
@@ -395,25 +402,25 @@ function accPanel(cols,hasOld){
   if(hasOld) h+='<div class="note" style="margin-bottom:calc(var(--u)*.8)">출제 목록이 저장되기 전의 옛 기록은 이 표에 포함되지 않습니다.</div>';
   if(!subs.length) return h+'<div class="sub">집계할 수 있는 회차가 아직 없습니다. 새로 푼 회차부터 표시됩니다.</div></div>';
   h+='<div class="note" style="margin-bottom:calc(var(--u)*.8)">분야 이름을 누르면 영역이 펼쳐지고, %를 누르면 그 문제들이 나옵니다.</div>';
-  h+='<div class="accwrap"><table class="acc"><tr><th class="sn">분야 · 영역 <button class="sec acc-all" id="acc-all">모두 펼치기/접기</button></th>'+cols.map(c=>'<th>'+c.name+'</th>').join('')+'</tr>';
+  h+='<div class="accwrap"><table class="acc"><tr><th class="sn">분야 · 영역 <button class="sec acc-all" id="acc-all">모두 펼치기/접기</button></th>'+cols.map(c=>'<th'+(c.id==='all'?' class="av"':'')+'>'+c.name+'</th>').join('')+'</tr>';
   const fieldsOf=s=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|')&&k.split('|').length===2).map(k=>k.split('|')[1]))].sort((x,y)=>ordF(s,x)-ordF(s,y));
   const areasOf=(s,f)=>[...new Set(Object.keys(keys).filter(k=>k.startsWith(s+'|'+f+'|')).map(k=>k.split('|')[2]))].sort((x,y)=>ordA(s,f,x)-ordA(s,f,y));
   subs.forEach(s=>{
-    h+='<tr class="rs"><td class="sn">'+s+'</td>'+cols.map(c=>'<td>'+accCell(c.st[s])+'</td>').join('')+'</tr>';
+    h+='<tr class="rs"><td class="sn">'+s+'</td>'+cols.map(c=>'<td'+(c.id==='all'?' class="av"':'')+'>'+accCell(c.st[s])+'</td>').join('')+'</tr>';
     fieldsOf(s).forEach(f=>{ const fk=s+'|'+f, open=!!accOpen[fk];
       h+='<tr class="rf" data-k="'+esc(fk)+'"><td class="sn nm">'+(open?'▾ ':'▸ ')+esc(f)+'</td>'+cols.map(c=>vcell(c,fk)).join('')+'</tr>';
       if(open) areasOf(s,f).forEach(x=>{ const ak=fk+'|'+x; h+='<tr class="ra"><td class="sn">'+esc(x)+'</td>'+cols.map(c=>vcell(c,ak)).join('')+'</tr>'; });
     });
   });
-  return h+'</table></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
+  return h+'</table></div><div class="accsl"><span>◀</span><input type="range" id="acc-slider" min="0" max="0" value="0"><span>▶</span></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
 }
 function accFor(filter){
   const all=RS().filter(r=>r.qs&&r.qs.length), hasOld=RS().some(r=>!(r.qs&&r.qs.length));
   const tot={}; all.forEach(r=>{ const s=recStats(r); Object.keys(s).forEach(k=>{ const v=tot[k]=tot[k]||{c:0,t:0}; v.c+=s[k].c; v.t+=s[k].t; }); });
-  const mk=r=>({id:r.no,name:lab(r)+'<div class="note">'+r.period+'교시</div>',st:recStats(r)});
+  const mk=r=>({id:r.no,name:(r.real?'국시 '+r.real+'회':r.no+'회차')+'<div class="note">'+r.period+'교시</div>',st:recStats(r)});
   let cols;
-  if(filter==='all') cols=all.map(mk).concat([{id:'all',name:'전체 평균',st:tot}]);
-  else { const r=RS().find(x=>x.no===filter); cols=[]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); cols.push({id:'all',name:'전체 평균',st:tot}); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
+  if(filter==='all') cols=[{id:'all',name:'전체 평균',st:tot}].concat(all.map(mk));
+  else { const r=RS().find(x=>x.no===filter); cols=[{id:'all',name:'전체 평균',st:tot}]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
   return accPanel(cols,hasOld&&filter==='all');
 }
 function keyMatch(q,key){ const qk=q.subj+'|'+q.field+'|'+q.area; return qk===key||qk.startsWith(key+'|'); }
@@ -430,7 +437,7 @@ function renderCell(){
   const nWrong=items.filter(x=>x.es.some(e=>!e.ok)).length;
   const list=items.filter(x=>fm(cs.mode,x.es));
   const title=(cs.col==='all'?'전체 평균':lab(U.records.find(r=>r.no===+cs.col)||{no:cs.col}))+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
-  let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button></div>'+fchips('cm',cs.mode,items.map(x=>x.es))+'<div class="sechd">'+esc(title)+'</div>';
+  let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button></div>'+fchips('cm',cs.mode,items.map(x=>x.es),cs.col==='all')+'<div class="sechd">'+esc(title)+'</div>';
   if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
   list.forEach(x=>{ h+=qCard(x.q,x.es,{count:(cnts[x.q.id]||[]).length,showWhich:cs.col==='all'}); });
   body.innerHTML=h; body.scrollTop=0;
@@ -445,7 +452,7 @@ function renderWrong(){
     const cand=Object.keys(m).map(id=>({id:id,es:m[id],w:m[id].filter(e=>!e.ok).length,f:m[id].filter(e=>e.fl).length}));
     const nW=cand.filter(x=>x.w).length, nRep=cand.filter(x=>x.w>=2).length, nF=cand.filter(x=>x.f).length;
     const list=cand.filter(x=>fm(wrongMode,x.es)).sort((a,b)=>b.w-a.w||b.f-a.f||Q.indexOf(byId[a.id])-Q.indexOf(byId[b.id]));
-    h+=fchips('wm',wrongMode,cand.map(x=>x.es));
+    h+=fchips('wm',wrongMode,cand.map(x=>x.es),true);
     h+='<div class="sechd">전체 회차 · 틀린 문제 '+nW+'개 · 2번 이상 틀린 문제 '+nRep+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(x=>{ h+=qCard(byId[x.id],x.es,{count:x.w,showWhich:true}); });
@@ -453,17 +460,18 @@ function renderWrong(){
     const r=R.find(x=>x.no===wrongFilter);
     if(!r){wrongFilter='all'; return renderWrong();}
     const cand=recMap(r), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
+    if(wrongMode==='many') wrongMode='all';
     const list=cand.filter(e=>fm(wrongMode,[e]));
     h+=fchips('wm',wrongMode,cand.map(e=>[e]));
     h+='<div class="sechd">'+lab(r)+' · '+r.period+'교시 틀린 문제 '+nW+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
   }
-  body.innerHTML=h; body.scrollTop=0;
+  body.innerHTML=h; body.scrollTop=0; setupAccSlider();
   $('wb-back').onclick=()=>{recView='main'; cellState=null; renderRecords();};
 }
 $('rec-body').addEventListener('click',ev=>{
-  const body=$('rec-body'), keep=fn=>{ const st=body.scrollTop; fn(); body.scrollTop=st; };
+  const body=$('rec-body'), keep=fn=>{ const st=body.scrollTop, w=body.querySelector('.accwrap'), sl=w?w.scrollLeft:0; fn(); body.scrollTop=st; const w2=body.querySelector('.accwrap'); if(w2){ w2.scrollLeft=sl; const r=document.getElementById('acc-slider'); if(r) r.value=sl; } };
   const nm=ev.target.closest('td.nm'); if(nm){ const k=nm.parentNode.dataset.k; keep(()=>{ accOpen[k]=!accOpen[k]; renderWrong(); }); return; }
   const vc=ev.target.closest('td.v'); if(vc){ accScroll=body.scrollTop; cellState={col:vc.dataset.c,key:vc.dataset.k,mode:'all'}; renderWrong(); return; }
   if(ev.target.closest('#acc-all')){ const ks=[...body.querySelectorAll('tr.rf')].map(t=>t.dataset.k); const anyClosed=ks.some(k=>!accOpen[k]); ks.forEach(k=>accOpen[k]=anyClosed); keep(renderWrong); return; }
