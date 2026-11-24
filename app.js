@@ -26,7 +26,17 @@ let viewing=null, adminU=null;
 function saveLocal(){ if(viewing) return; if(sid&&U){ if(E) U.exam=E; lsSet('ptq2:u:'+sid,U); } }
 function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function stemHtml(s){ const p=s.split(' • '); if(p.length===1) return esc(s); return esc(p[0])+'<div class="box"><ul>'+p.slice(1).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'; }
+function stemTable(s){
+  const i=s.indexOf(' | '); if(i<0||!/\|\s*:?-{1,}:?\s*\|/.test(s)) return null;
+  const cells=s.slice(i).split('|').map(t=>t.trim()).filter(t=>t!==''), isSep=t=>/^:?-+:?$/.test(t);
+  const k=cells.findIndex(isSep); if(k<1) return null; let n=0; while(isSep(cells[k+n]||'')) n++;
+  if(n!==k) return null; const body=cells.slice(2*k); if(!body.length||body.length%k) return null;
+  let h='<table class="stbl"><tr>'+cells.slice(0,k).map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>';
+  for(let r=0;r<body.length;r+=k) h+='<tr>'+body.slice(r,r+k).map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>';
+  return {pre:s.slice(0,i).trim(),html:h+'</table>'};
+}
+function stemHtml(s){ const t=stemTable(s); if(t) return esc(t.pre)+t.html; const p=s.split(' • '); if(p.length===1) return esc(s); return esc(p[0])+'<div class="box"><ul>'+p.slice(1).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'; }
+function stemLead(s){ const t=stemTable(s); return t?t.pre:s.split(' • ')[0]; }
 function pgLabel(q){ return q.ps===q.pe ? 'p.'+q.ps : 'p.'+q.ps+'–'+q.pe; }
 function pct(c,t){return t? Math.round(c*1000/t)/10 : 0;}
 function label(c,t){ if(!t) return null; if(c*100<40*t) return ['과락','c-fail']; if(c*100<=60*t) return ['주의','c-warn']; if(c*100<=80*t) return ['안정권','c-safe']; return ['짱이야','c-top']; }
@@ -284,7 +294,7 @@ function qCard(q,es,opts){
   q.opts.forEach((o,i)=>{ h+='<div class="wo'+(i===q.ans?' right':'')+(mine.has(i)?' mine':'')+'">'+'①②③④⑤'[i]+' '+esc(o)+(i===q.ans?'  ← 정답':'')+(mine.has(i)&&i!==q.ans?'  ← 내 답':'')+'</div>'; });
   if(one&&!one.ok&&one.m<0) h+='<div class="small nosel">선택한 선지 없음</div>';
   if(opts.showWhich) h+='<div class="small" style="margin-top:calc(var(--u)*.8)">'+es.map(x=>x.lab+': '+(x.ok?'정답':(x.m<0?'선택한 선지 없음':'①②③④⑤'[x.m]+' 오답'))+(x.fl?' · 다시 확인':'')).join(' · ')+'</div>';
-  return h+'</div>';
+  return h+xpBlock(q)+'</div>';
 }
 
 /* ---------- 결과 ---------- */
@@ -295,7 +305,7 @@ function subjTable(rows){
 }
 let resRec=null, resMode='all';
 function showResult(rec,justDone){
-  resRec=rec; resMode='all'; recTab=rec.real?'real':'mock'; show('s-result');
+  resRec=rec; resMode='all'; recTab=rec.real?'real':'mock'; show('s-result'); preloadExpl();
   $('res-title').textContent=lab(rec)+' · '+rec.period+'교시 결과'+(rec.auto?' (시간 종료로 자동 제출)':'');
   const b=$('res-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
@@ -306,7 +316,7 @@ function showResult(rec,justDone){
 }
 const FM=[['all','전체'],['right','정답'],['fok','정답-확인'],['fbad','오답-확인'],['fnone','오답-확인X'],['many','많이 틀린 문제']];
 function fm(k,es){ if(k==='all') return true; if(k==='right') return es.some(e=>e.ok); if(k==='wrong') return es.some(e=>!e.ok); if(k==='fok') return es.some(e=>e.fl&&e.ok); if(k==='fbad') return es.some(e=>e.fl&&!e.ok); if(k==='fnone') return es.some(e=>!e.ok&&!e.fl); if(k==='many') return es.filter(e=>!e.ok).length>=2; return true; }
-function fchips(attr,cur,groups,many){ return '<div class="chips">'+FM.filter(p=>p[0]!=='many'||many).map(p=>'<button data-'+attr+'="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'">'+p[1]+' '+groups.filter(g=>fm(p[0],g)).length+'</button>').join('')+'</div>'; }
+function fchips(attr,cur,groups,many){ return '<div class="chips">'+FM.filter(p=>p[0]!=='many'||many).map(p=>'<button data-'+attr+'="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'">'+p[1]+' '+groups.filter(g=>fm(p[0],g)).length+'</button>').join('')+xAllBtn()+'</div>'; }
 function renderResultBody(){
   const rec=resRec, rows=PERIODS[rec.period].subs.map(s=>[s,rec.subj[s]||{c:0,t:0}]);
   const es=recMap(rec), hasAll=!!(rec.qs&&rec.qs.length), cnts=wrongCounts();
@@ -321,7 +331,7 @@ function renderResultBody(){
     list.forEach(e=>{ h+='<div id="rc-'+e.i+'">'+qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length,num:e.i+1})+'</div>'; });
   } else {
     h+='<div class="sechd">틀린 문제 · 선택 없음 포함 '+rec.wrong.length+'개</div>';
-    h+='<div class="note" style="margin-bottom:calc(var(--u)*1)">이 회차는 출제 목록이 저장되기 전 기록이라 틀린 문제만 볼 수 있습니다.</div>';
+    h+='<div class="note" style="margin-bottom:calc(var(--u)*1)">이 회차는 출제 목록이 저장되기 전 기록이라 틀린 문제만 볼 수 있습니다.</div><div class="chips">'+xAllBtn()+'</div>';
     if(!rec.wrong.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
     es.forEach(e=>{ h+=qCard(byId[e.id],[e],{count:(cnts[e.id]||[]).length}); });
   }
@@ -336,7 +346,7 @@ $('res-body').addEventListener('click',ev=>{
 /* ---------- 기록 ---------- */
 let recView='main', wrongFilter='all';
 function showRecords(){
-  show('s-rec'); recView='main';
+  show('s-rec'); recView='main'; preloadExpl();
   $('rec-title').textContent=viewing?('학생 '+viewing+' 기록 · 읽기 전용'):('기록 · '+sid);
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
@@ -646,15 +656,30 @@ function startQuiz(ids,name){
   QZ={ids:shuffle(ids),i:0,sel:null,checked:false,log:[],name};
   show('s-quiz'); renderQuiz();
 }
-function xpHtml(q,ok){
+function xpInner(q){
   const x=X&&X[q.id];
-  let h='<div class="xp '+(ok?'ok':'bad')+'"><div class="xv">'+(ok?'정답입니다':'오답입니다 · 정답 '+'①②③④⑤'[q.ans])+'</div>';
-  if(x){
-    h+='<div>'+x.kw.map(k=>'<span class="kw">'+esc(k)+'</span>').join('')+'</div>';
-    h+='<p><span class="xl">해설</span>'+esc(x.why)+'</p>';
-    if(x.trap) h+='<p><span class="xl">함정</span>'+esc(x.trap)+'</p>';
-    if(x.ref) h+='<p class="ref">'+esc(x.ref)+'</p>';
-  } else h+='<p class="note">이 문제의 해설을 불러오지 못했습니다.</p>';
+  if(!x) return '<p class="note">'+(X?'이 문제의 해설이 없습니다.':'해설을 불러오지 못했습니다. 인터넷에 연결한 뒤 다시 눌러 주세요.')+'</p>';
+  let h='<div>'+x.kw.map(k=>'<span class="kw">'+esc(k)+'</span>').join('')+'</div>';
+  h+='<p><span class="xl">해설</span>'+esc(x.why)+'</p>';
+  if(x.trap) h+='<p><span class="xl">함정</span>'+esc(x.trap)+'</p>';
+  if(x.ref) h+='<p class="ref">'+esc(x.ref)+'</p>';
+  return h;
+}
+/* 결과·기록 카드의 해설 (제출 후에만 · 시험 도중에는 없음) */
+let xAll=false, xLoading=null; const xOpen=new Set();
+function preloadExpl(){ if(!X&&!xLoading) xLoading=ensureExpl().catch(()=>false).finally(()=>{xLoading=null;}); return xLoading||Promise.resolve(!!X); }
+function xAllBtn(){ return '<button class="sec xall" style="margin-left:auto">'+(xAll?'해설 모두 접기':'해설 모두 펼치기')+'</button>'; }
+function xpBlock(q){ const open=xAll||xOpen.has(q.id); return '<div class="xpw" data-x="'+esc(q.id)+'"><button class="sec xbtn">'+(open?'해설 접기':'해설 보기')+'</button><div class="xp2"'+(open?'':' hidden')+'>'+(open?xpInner(q):'')+'</div></div>'; }
+function setXp(w,open){ const c=w.querySelector('.xp2'), id=w.dataset.x; if(open){ c.innerHTML=xpInner(byId[id]); c.hidden=false; xOpen.add(id); } else { c.hidden=true; xOpen.delete(id); } w.querySelector('.xbtn').textContent=open?'해설 접기':'해설 보기'; }
+document.addEventListener('click',async ev=>{
+  const b=ev.target.closest('.xbtn'), a=ev.target.closest('.xall'); if(!b&&!a) return;
+  const root=(b||a).closest('.scroll'), w=b&&b.closest('.xpw'), wasOpen=w&&!w.querySelector('.xp2').hidden;
+  if(!X){ (b||a).disabled=true; await preloadExpl(); (b||a).disabled=false; if(w&&wasOpen&&X){ setXp(w,true); return; } }
+  if(w){ setXp(w,!wasOpen); return; }
+  xAll=!xAll; xOpen.clear(); root.querySelectorAll('.xpw').forEach(w=>setXp(w,xAll)); root.querySelectorAll('.xall').forEach(x=>x.textContent=xAll?'해설 모두 접기':'해설 모두 펼치기');
+});
+function xpHtml(q,ok){
+  let h='<div class="xp '+(ok?'ok':'bad')+'"><div class="xv">'+(ok?'정답입니다':'오답입니다 · 정답 '+'①②③④⑤'[q.ans])+'</div>'+xpInner(q);
   h+='<div class="note">개념정리본 '+pgLabel(q)+(q.subj==='법규'?' · 문제와 정답은 기출 당시 기준':'')+'</div></div>';
   return h;
 }
@@ -698,7 +723,7 @@ function showQres(){
     if(!keys.length) h+='<div class="card">틀린 문제가 없습니다.</div>';
     keys.forEach(k=>{ const [s,f,a]=k.split('|'), n=Q.filter(q=>akey(q)===k).length;
       h+='<div class="qa"><div class="hd"><div><b>'+esc(a)+'</b> <span class="note">'+esc(s)+' · '+esc(f)+' · 이번에 '+per[k][0]+'/'+per[k][1]+' 맞힘</span></div><button data-ra="'+esc(k)+'">이 영역 전체 다시 풀기 ('+n+'문항)</button></div>';
-      G[k].forEach(q=>{ const x=X&&X[q.id], st=q.stem.split(' • ')[0];
+      G[k].forEach(q=>{ const x=X&&X[q.id], st=stemLead(q.stem);
         h+='<div class="wi"><div class="s"><span class="src" style="margin-left:0">기출 '+esc(q.id)+'</span> '+esc(st.length>60?st.slice(0,60)+'…':st)+'</div>'+(x?x.kw.map(w=>'<span class="kw">'+esc(w)+'</span>').join(''):'')+'</div>'; });
       h+='</div>'; });
   }

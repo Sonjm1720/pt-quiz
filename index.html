@@ -146,6 +146,14 @@ td.sn{text-align:left;font-weight:700}
 .xp.ok .xv{color:#1f7a45}.xp.bad .xv{color:#c03434}
 .xp .xl{font-weight:800;color:#3b4a6b;margin-right:calc(var(--u)*.6)}
 .xp p{margin:calc(var(--u)*.7) 0;font-size:calc(var(--u)*1.95);line-height:1.55}
+.xp2{margin-top:calc(var(--u)*1);background:#f7f9fd;border-radius:calc(var(--u)*1);padding:calc(var(--u)*1.2) calc(var(--u)*1.4);border-left:calc(var(--u)*.5) solid #8a4fc4}
+.xp2 p{margin:calc(var(--u)*.6) 0;font-size:calc(var(--u)*1.85);line-height:1.55}
+.xp2 p.ref{background:#fff4d6;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.8) calc(var(--u)*1)}
+.xp2 .xl{font-weight:800;color:#3b4a6b;margin-right:calc(var(--u)*.6)}
+.xbtn{margin-top:calc(var(--u)*1);padding:calc(var(--u)*.6) calc(var(--u)*1.6);font-size:calc(var(--u)*1.7)}
+table.stbl{width:auto;margin-top:calc(var(--u)*1);font-size:inherit;font-weight:500;background:#fff;border-collapse:collapse}
+table.stbl th,table.stbl td{border:calc(var(--u)*.15) solid #9aa7c2;padding:calc(var(--u)*.5) calc(var(--u)*2);text-align:center;color:#1d2433}
+table.stbl th{background:#eef1f8;font-weight:700}
 .xp p.ref{background:#fff4d6;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.8) calc(var(--u)*1)}
 .kw{display:inline-block;background:#e7efff;color:#1d3f8f;font-weight:700;border-radius:calc(var(--u)*.8);padding:calc(var(--u)*.1) calc(var(--u)*1);margin:0 calc(var(--u)*.6) calc(var(--u)*.4) 0;font-size:calc(var(--u)*1.7)}
 .qmeta{font-size:calc(var(--u)*1.6);color:#5b667f;margin-bottom:calc(var(--u)*1)}
@@ -207,7 +215,7 @@ td.sn{text-align:left;font-weight:700}
     </div>
     <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
       <div class="sechd" style="margin-top:0">1-2. 해설 데이터 올리기</div>
-      <div class="small" style="margin-bottom:calc(var(--u)*1)">explanations_upload.json 파일을 고른 뒤 올리기를 누릅니다. 해설은 과목별 퀴즈에서만 보입니다. 문제 데이터를 먼저 올린 뒤에 올려 주세요.</div>
+      <div class="small" style="margin-bottom:calc(var(--u)*1)">explanations_upload.json 파일을 고른 뒤 올리기를 누릅니다. 해설은 과목별 퀴즈와, 시험 제출 후 결과·기록의 문제 카드에서 보입니다(시험 푸는 도중에는 안 보임). 문제 데이터를 먼저 올린 뒤에 올려 주세요.</div>
       <input type="file" id="adm-efile" accept=".json,application/json"> <button id="adm-eup">해설 올리기</button> <button class="sec" id="adm-echk">해설 서버 확인</button>
     </div>
     <div class="card" style="margin-bottom:calc(var(--u)*1.6)">
