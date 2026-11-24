@@ -344,13 +344,16 @@ $('res-body').addEventListener('click',ev=>{
 });
 
 /* ---------- 기록 ---------- */
-let recView='main', wrongFilter='all';
+let recView='main', wSel=null; /* wSel: null=모든 회차 선택, Set=고른 회차 번호 */
+function selRecs(){ return RS().filter(r=>wSel===null||wSel.has(r.no)); }
+function allSel(){ const R=RS(); return wSel===null||(R.length>0&&R.every(r=>wSel.has(r.no))); }
+function avgName(){ return allSel()?'전체 평균':'선택 평균'; }
 function showRecords(){
   show('s-rec'); recView='main'; preloadExpl();
   $('rec-title').textContent=viewing?('학생 '+viewing+' 기록 · 읽기 전용'):('기록 · '+sid);
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  add('문제 확인','warn',()=>{recView='wrong';wrongFilter='all';wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
+  add('문제 확인','warn',()=>{recView='wrong';wSel=null;wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
   renderRecords();
 }
 function tabsHtml(){ return '<div class="chips"><button data-rt="mock" class="'+(recTab==='mock'?'on':'')+'">모의시험</button><button data-rt="real" class="'+(recTab==='real'?'on':'')+'">국가고시</button></div>'; }
@@ -370,17 +373,20 @@ function renderRecords(){
   body.innerHTML=h; body.scrollTop=0;
 }
 $('rec-body').addEventListener('click',ev=>{
-  const rt=ev.target.closest('[data-rt]'); if(rt){ recTab=rt.dataset.rt; wrongFilter='all'; wrongMode='all'; cellState=null; renderRecords(); return; }
+  const rt=ev.target.closest('[data-rt]'); if(rt){ recTab=rt.dataset.rt; wSel=null; wrongMode='all'; cellState=null; renderRecords(); return; }
   const v=ev.target.closest('[data-v]'), d=ev.target.closest('[data-d]'), f=ev.target.closest('[data-f]');
   if(v){ const r=U.records.find(x=>x.no==v.dataset.v); showResult(r,false); }
   if(d){ const no=+d.dataset.d; modal(lab(U.records.find(x=>x.no===no)||{no:no})+' 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.',[['취소','sec'],['삭제','warn',()=>deleteRecord(no)]]); }
-  if(f){ wrongFilter=f.dataset.f==='all'?'all':+f.dataset.f; cellState=null; renderWrong(); }
+  if(f){ const v=f.dataset.f;
+    if(v==='on') wSel=null; else if(v==='off') wSel=new Set();
+    else { const no=+v; if(wSel===null) wSel=new Set(RS().map(r=>r.no)); wSel.has(no)?wSel.delete(no):wSel.add(no); if(allSel()) wSel=null; }
+    cellState=null; renderWrong(); }
 });
 async function deleteRecord(no){
   if(viewing) return;
   const r=U.records.find(x=>x.no===no); if(!r) return;
   if(!r.pending){ try{ await T(DB.delRecord(sid,no)); }catch(e){ modal('서버에 연결할 수 없어 삭제하지 못했습니다.\n인터넷에 연결한 뒤 다시 시도해 주세요.',[['확인','']]); return; } }
-  U.records=U.records.filter(x=>x.no!==no); saveLocal(); if(wrongFilter===no) wrongFilter='all'; renderRecords();
+  U.records=U.records.filter(x=>x.no!==no); saveLocal(); if(wSel) wSel.delete(no); renderRecords();
 }
 
 /* ---------- 분야·영역 정답률 ---------- */
@@ -424,19 +430,18 @@ function accPanel(cols,hasOld){
   });
   return h+'</table></div><div class="accsl"><span>◀</span><input type="range" id="acc-slider" min="0" max="0" value="0"><span>▶</span></div><div class="note" style="margin-top:calc(var(--u)*.8)">%는 맞힌 수 ÷ 출제된 문항 수입니다(안 푼 문제는 오답). 전체 평균은 모든 회차의 맞힌 수를 합쳐 계산합니다.</div></div>';
 }
-function accFor(filter){
-  const all=RS().filter(r=>r.qs&&r.qs.length), hasOld=RS().some(r=>!(r.qs&&r.qs.length));
+function accFor(){
+  const sel=selRecs(), all=sel.filter(r=>r.qs&&r.qs.length), hasOld=sel.some(r=>!(r.qs&&r.qs.length));
   const tot={}; all.forEach(r=>{ const s=recStats(r); Object.keys(s).forEach(k=>{ const v=tot[k]=tot[k]||{c:0,t:0}; v.c+=s[k].c; v.t+=s[k].t; }); });
   const mk=r=>({id:r.no,name:(r.real?'국시 '+r.real+'회':r.no+'회차')+'<div class="note">'+r.period+'교시</div>',st:recStats(r)});
-  let cols;
-  if(filter==='all') cols=[{id:'all',name:'전체 평균',st:tot}].concat(all.map(mk));
-  else { const r=RS().find(x=>x.no===filter); cols=[{id:'all',name:'전체 평균',st:tot}]; if(r&&r.qs&&r.qs.length) cols.push(mk(r)); if(r&&!(r.qs&&r.qs.length)) return accPanel(cols,false).replace('<div class="accwrap">','<div class="note" style="margin-bottom:calc(var(--u)*.8)">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div><div class="accwrap">'); }
-  return accPanel(cols,hasOld&&filter==='all');
+  const cols=[{id:'all',name:avgName(),st:tot}].concat(all.map(mk));
+  if(sel.length===1&&hasOld) return '<div class="card" style="margin-bottom:calc(var(--u)*1.6)"><div style="font-weight:800;font-size:calc(var(--u)*2.3);margin-bottom:calc(var(--u)*.6)">분야·영역별 정답률</div><div class="note">이 회차는 출제 목록이 저장되기 전 기록이라 이 회차의 분야·영역별 정답률은 알 수 없습니다.</div></div>';
+  return accPanel(cols,hasOld);
 }
 function keyMatch(q,key){ const qk=q.subj+'|'+q.field+'|'+q.area; return qk===key||qk.startsWith(key+'|'); }
 function cellEntries(col,key){
   const m={}, order=[];
-  RS().filter(r=>r.qs&&r.qs.length&&(col==='all'||r.no===+col)).forEach(r=>recMap(r).forEach(e=>{ if(keyMatch(byId[e.id],key)){ if(!m[e.id]){m[e.id]=[];order.push(e.id);} m[e.id].push(e);} }));
+  selRecs().filter(r=>r.qs&&r.qs.length&&(col==='all'||r.no===+col)).forEach(r=>recMap(r).forEach(e=>{ if(keyMatch(byId[e.id],key)){ if(!m[e.id]){m[e.id]=[];order.push(e.id);} m[e.id].push(e);} }));
   return order.map(id=>({q:byId[id],es:m[id]}));
 }
 function renderCell(){
@@ -446,7 +451,7 @@ function renderCell(){
   if(cs.col==='all') items.sort((a,b)=>Q.indexOf(a.q)-Q.indexOf(b.q)); else items.sort((a,b)=>a.es[0].i-b.es[0].i);
   const nWrong=items.filter(x=>x.es.some(e=>!e.ok)).length;
   const list=items.filter(x=>fm(cs.mode,x.es));
-  const title=(cs.col==='all'?'전체 평균':lab(U.records.find(r=>r.no===+cs.col)||{no:cs.col}))+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
+  const title=(cs.col==='all'?avgName():lab(U.records.find(r=>r.no===+cs.col)||{no:cs.col}))+' · '+cs.key.split('|').slice(1).join(' › ')+' · '+pct(okc,tot)+'% ('+okc+'/'+tot+')';
   let h='<div class="chips"><button class="sec" id="cell-back">← 표로 돌아가기</button></div>'+fchips('cm',cs.mode,items.map(x=>x.es),cs.col==='all')+'<div class="sechd">'+esc(title)+'</div>';
   if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
   list.forEach(x=>{ h+=qCard(x.q,x.es,{count:(cnts[x.q.id]||[]).length,showWhich:cs.col==='all'}); });
@@ -455,20 +460,24 @@ function renderCell(){
 function renderWrong(){
   if(cellState) return renderCell();
   const R=RS(), cnts=wrongCounts(), body=$('rec-body');
-  let h=tabsHtml()+'<div class="chips"><button data-f="all" class="'+(wrongFilter==='all'?'on':'')+'">전체 회차</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(wrongFilter===r.no?'on':'')+'">'+(r.real?'국시 '+r.real+'회':r.no+'회차')+'·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
-  h+=accFor(wrongFilter);
-  if(wrongFilter==='all'){
-    const m={}; R.forEach(r=>recMap(r).forEach(e=>{(m[e.id]=m[e.id]||[]).push(e);}));
+  const S=selRecs(), isSel=r=>wSel===null||wSel.has(r.no);
+  let h=tabsHtml()+'<div class="chips"><button class="act" data-f="on">전체 선택</button><button class="act" data-f="off">선택 해제</button>'+R.map(r=>'<button data-f="'+r.no+'" class="'+(isSel(r)?'on':'')+'">'+(r.real?'국시 '+r.real+'회':r.no+'회차')+'·'+r.period+'교시</button>').join('')+'<button class="sec" id="wb-back" style="margin-left:auto">기록으로</button></div>';
+  if(R.length&&!S.length){
+    h+='<div class="card" style="text-align:center;padding:calc(var(--u)*4)"><div style="font-weight:800;font-size:calc(var(--u)*2.2)">회차를 하나 이상 골라 주세요</div><div class="note" style="margin-top:calc(var(--u)*.6)">위의 회차 버튼을 누르면 선택됩니다. "전체 선택"을 누르면 모든 회차를 봅니다.</div></div>';
+    body.innerHTML=h; body.scrollTop=0; $('wb-back').onclick=()=>{recView='main'; cellState=null; renderRecords();}; return;
+  }
+  h+=accFor();
+  if(S.length!==1){
+    const m={}; S.forEach(r=>recMap(r).forEach(e=>{(m[e.id]=m[e.id]||[]).push(e);}));
     const cand=Object.keys(m).map(id=>({id:id,es:m[id],w:m[id].filter(e=>!e.ok).length,f:m[id].filter(e=>e.fl).length}));
     const nW=cand.filter(x=>x.w).length, nRep=cand.filter(x=>x.w>=2).length, nF=cand.filter(x=>x.f).length;
     const list=cand.filter(x=>fm(wrongMode,x.es)).sort((a,b)=>b.w-a.w||b.f-a.f||Q.indexOf(byId[a.id])-Q.indexOf(byId[b.id]));
     h+=fchips('wm',wrongMode,cand.map(x=>x.es),true);
-    h+='<div class="sechd">전체 회차 · 틀린 문제 '+nW+'개 · 2번 이상 틀린 문제 '+nRep+'개 · 다시 확인 '+nF+'개</div>';
+    h+='<div class="sechd">'+(allSel()?'전체 회차':'선택한 회차 '+S.length+'개')+' · 틀린 문제 '+nW+'개 · 2번 이상 틀린 문제 '+nRep+'개 · 다시 확인 '+nF+'개</div>';
     if(!list.length) h+='<div class="card">해당하는 문제가 없습니다.</div>';
     list.forEach(x=>{ h+=qCard(byId[x.id],x.es,{count:x.w,showWhich:true}); });
   } else {
-    const r=R.find(x=>x.no===wrongFilter);
-    if(!r){wrongFilter='all'; return renderWrong();}
+    const r=S[0];
     const cand=recMap(r), nW=cand.filter(e=>!e.ok).length, nF=cand.filter(e=>e.fl).length;
     if(wrongMode==='many') wrongMode='all';
     const list=cand.filter(e=>fm(wrongMode,[e]));
@@ -537,7 +546,7 @@ $('stu-out').addEventListener('click',ev=>{
   const b=ev.target.closest('[data-sv]'); if(!b) return; const id=b.dataset.sv, d=stuData[id]; if(!d||!d.ok) return;
   adminU=U; viewing=id;
   U=Object.assign(fresh(),{records:d.r.map(r=>Object.assign({wrong:[]},r)).sort((a,b)=>a.no-b.no),nextNo:1,exam:null});
-  recTab='mock'; wrongFilter='all'; wrongMode='all'; cellState=null; showRecords();
+  recTab='mock'; wSel=null; wrongMode='all'; cellState=null; showRecords();
 });
 $('adm-up').onclick=()=>{ const f=$('adm-file').files[0]; if(!f){ adminLog('문제 데이터 파일(questions_upload.json)을 먼저 선택해 주세요.'); return; }
   const rd=new FileReader(); rd.onload=async()=>{
