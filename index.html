@@ -163,6 +163,28 @@ table.stbl th{background:#eef1f8;font-weight:700}
 .qa .hd b{font-size:calc(var(--u)*2.1)}
 .qa .wi{border-top:calc(var(--u)*.15) solid #e4e9f3;padding:calc(var(--u)*.8) 0}
 .qa .wi .s{font-size:calc(var(--u)*1.7);color:#46506b;margin-bottom:calc(var(--u)*.4)}
+/* 스마트폰·세로 화면: 과목별 퀴즈 세 화면만 세로 배치 */
+#stage.portrait .row{gap:calc(var(--u)*1.2)}
+#stage.portrait .top{flex-wrap:wrap;gap:calc(var(--u)*1);padding:calc(var(--u)*1.2) calc(var(--u)*1.8)}
+#stage.portrait .top h2{font-size:calc(var(--u)*2.3);flex-basis:100%}
+#stage.portrait .top .row{justify-content:flex-start}
+#stage.portrait .scroll{padding:calc(var(--u)*1.4) calc(var(--u)*1.6)}
+#stage.portrait .card{padding:calc(var(--u)*1.6)}
+#stage.portrait .qs-subj h2{flex-wrap:wrap}
+#stage.portrait .hdr{height:auto;flex-wrap:wrap;padding:calc(var(--u)*1) calc(var(--u)*1.6);row-gap:calc(var(--u)*.6)}
+#stage.portrait .hdr .m{order:-1;flex-basis:100%;text-align:left}
+#stage.portrait .body{padding:calc(var(--u)*1.6) calc(var(--u)*1.8)}
+#stage.portrait .stem{font-size:calc(var(--u)*2.15)}
+#stage.portrait .opt{font-size:calc(var(--u)*2);padding:calc(var(--u)*1.3) calc(var(--u)*1.4)}
+#stage.portrait .ftr{height:auto;padding:calc(var(--u)*1.2) calc(var(--u)*1.8) calc(var(--u)*1.6);gap:calc(var(--u)*1.2)}
+#stage.portrait .ftr .cnt{flex:1}
+#stage.portrait #s-quiz .ftr .cnt{display:none}
+#stage.portrait #s-quiz .ftr button{flex:1;padding:calc(var(--u)*1.7)}
+#stage.portrait #s-qsel .ftr button{padding:calc(var(--u)*1.5) calc(var(--u)*4)}
+#stage.portrait .qa .hd{flex-wrap:wrap}
+#stage.portrait .qa .hd button{width:100%}
+#stage.portrait table.stbl th,#stage.portrait table.stbl td{padding:calc(var(--u)*.5) calc(var(--u)*1.1)}
+#stage.portrait .modal .box{width:92%;padding:calc(var(--u)*2.4)}
 </style>
 </head>
 <body>
@@ -178,7 +200,7 @@ table.stbl th{background:#eef1f8;font-weight:700}
   <div><input id="pw" class="sid" type="password" placeholder="비밀번호" autocomplete="current-password" style="letter-spacing:calc(var(--u)*.2);margin-top:0"></div>
   <div class="err" id="login-err"></div>
   <button class="bigbtn" id="login-go">로그인</button>
-  <div class="note" style="margin-top:calc(var(--u)*2)">아이패드 가로 화면에 맞춰져 있습니다. 비밀번호를 잊으면 관리자에게 초기화를 요청해 주세요.</div>
+  <div class="note" style="margin-top:calc(var(--u)*2)">아이패드 가로 화면 기준입니다. 과목별 퀴즈는 스마트폰 세로 화면에서도 쓸 수 있습니다. 비밀번호를 잊으면 관리자에게 초기화를 요청해 주세요.</div>
 </div>
 
 <div class="screen center" id="s-loading"><h2 id="loading-t">불러오는 중…</h2></div>
@@ -191,7 +213,7 @@ table.stbl th{background:#eef1f8;font-weight:700}
     <div style="font-weight:800" id="home-resume-t"></div>
     <div class="row" style="margin-top:calc(var(--u)*1.2)"><button class="ok" id="resume-go">이어서 풀기</button><button class="sec" id="resume-drop">이 시험 포기</button></div>
   </div>
-  <div class="row"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-real" style="background:#1f7a5c">국가 고시</button><button class="bigbtn" id="h-quiz" style="background:#8a4fc4">과목별 퀴즈</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
+  <div class="row" id="home-main"><button class="bigbtn" id="h-exam">모의 시험</button><button class="bigbtn" id="h-real" style="background:#1f7a5c">국가 고시</button><button class="bigbtn" id="h-quiz" style="background:#8a4fc4">과목별 퀴즈</button><button class="bigbtn" id="h-rec" style="background:#3b4a6b">기록</button></div>
   <div class="note" id="home-note" style="margin-top:calc(var(--u)*1.6);min-height:calc(var(--u)*2)"></div>
   <div class="row" style="margin-top:calc(var(--u)*1.6)"><button class="sec" id="h-pw">비밀번호 변경</button><button class="sec" id="h-logout">로그아웃</button><button class="sec" id="h-admin" style="display:none">관리자</button></div>
 </div>

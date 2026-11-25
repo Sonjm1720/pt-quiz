@@ -9,11 +9,16 @@ const poolCache={};
 const deviceId=(()=>{try{let d=localStorage.getItem('ptq2:dev'); if(!d){d=Math.random().toString(36).slice(2,10); localStorage.setItem('ptq2:dev',d);} return d;}catch(e){return 'nodev';}})();
 
 /* ---------- 화면 크기 4:3 ---------- */
+/* 세로 화면(스마트폰·아이패드 세로)에서는 과목별 퀴즈 세 화면만 세로 배치, 나머지는 가로 4:3 유지 */
+const PORT=new Set(['s-qsel','s-quiz','s-qres']);
+let curScreen='s-login';
 function fit(){
-  const w=innerWidth,h=innerHeight; let sw=w, sh=w*3/4; if(sh>h){sh=h;sw=h*4/3;}
-  const st=$('stage'); st.style.width=sw+'px'; st.style.height=sh+'px'; st.style.setProperty('--u',(sw/100)+'px');
+  const w=innerWidth,h=innerHeight, st=$('stage'), por=h>w, pv=por&&PORT.has(curScreen);
+  st.classList.toggle('portrait',pv);
+  if(pv){ st.style.width=w+'px'; st.style.height=h+'px'; st.style.setProperty('--u',Math.min(w/45,h/75,12)+'px'); }
+  else { let sw=w, sh=w*3/4; if(sh>h){sh=h;sw=h*4/3;} st.style.width=sw+'px'; st.style.height=sh+'px'; st.style.setProperty('--u',(sw/100)+'px'); }
 }
-addEventListener('resize',fit); fit();
+addEventListener('resize',fit); addEventListener('orientationchange',()=>setTimeout(fit,200)); fit();
 
 /* ---------- 기기 저장 / 유틸 ---------- */
 function lsGet(k){try{const r=localStorage.getItem(k); return r?JSON.parse(r):null;}catch(e){return null;}}
@@ -24,7 +29,7 @@ function T(p,ms){ return Promise.race([Promise.resolve(p),new Promise((_,rej)=>s
 function fresh(){return {nextNo:1,records:[],exam:null,examAt:''};}
 let viewing=null, adminU=null;
 function saveLocal(){ if(viewing) return; if(sid&&U){ if(E) U.exam=E; lsSet('ptq2:u:'+sid,U); } }
-function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); curScreen=id; fit(); }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function stemTable(s){
   const i=s.indexOf(' | '); if(i<0||!/\|\s*:?-{1,}:?\s*\|/.test(s)) return null;
