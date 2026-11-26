@@ -353,17 +353,87 @@ let recView='main', wSel=null; /* wSel: null=모든 회차 선택, Set=고른 �
 function selRecs(){ return RS().filter(r=>wSel===null||wSel.has(r.no)); }
 function allSel(){ const R=RS(); return wSel===null||(R.length>0&&R.every(r=>wSel.has(r.no))); }
 function avgName(){ return allSel()?'전체 평균':'선택 평균'; }
+/* ---------- AI 분석용 학습 기록 다운로드 (보고 있는 탭의 본인 기록만 · 개인정보 제외) ---------- */
+function dlLabel(){ return 'AI 분석용 학습 기록 다운로드 ('+(recTab==='real'?'국가고시':'모의시험')+')'; }
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function buildAiExport(){
+  const kind=recTab==='real'?'국가고시':'모의시험', R=RS().slice().sort((a,b)=>a.no-b.no), N=n=>n+1;
+  const rate=(c,t)=>t?Math.round(c*1000/t)/10:null;
+  const src=id=>{ const m=/^(\d+)회 (\d)교시 (\d+)번$/.exec(id); return m?{examRound:+m[1],period:+m[2],number:+m[3]}:null; };
+  const sessions=[], att={}, subjAgg={}, fldAgg={}; let slots=0, unanswered=0, partial=0;
+  R.forEach((r,si)=>{
+    const full=!!(r.qs&&r.qs.length); if(!full) partial++;
+    const nUn=r.wrong.filter(w=>w.m<0).length; slots+=r.total; unanswered+=nUn;
+    Object.keys(r.subj).forEach(s=>{ const v=subjAgg[s]=subjAgg[s]||{c:0,t:0}; v.c+=r.subj[s].c; v.t+=r.subj[s].t; });
+    if(full){ const st=recStats(r); Object.keys(st).forEach(k=>{ if(k.split('|').length<2) return; const v=fldAgg[k]=fldAgg[k]||{c:0,t:0}; v.c+=st[k].c; v.t+=st[k].t; }); }
+    const lim=PERIODS[r.period].min*60, used=Math.round((r.used||0)/1000);
+    sessions.push({sessionOrder:si+1,type:kind,examRound:r.real||null,period:r.period,submittedAt:r.at,
+      usedSeconds:used,timeLimitSeconds:lim,autoSubmittedByTimeout:!!r.auto,totalQuestions:r.total,correct:r.correct,
+      wrong:r.total-r.correct,unanswered:nUn,accuracyPercent:rate(r.correct,r.total),
+      bySubject:Object.keys(r.subj).map(s=>({subject:s,correct:r.subj[s].c,total:r.subj[s].t,accuracyPercent:rate(r.subj[s].c,r.subj[s].t)})),
+      questionListSaved:full});
+    recMap(r).forEach(e=>{ (att[e.id]=att[e.id]||[]).push({sessionOrder:si+1,submittedAt:r.at,chosen:e.m<0?null:N(e.m),result:e.ok?'정답':(e.m<0?'미응답':'오답'),markedForReview:e.fl}); });
+  });
+  const byLevel=lv=>Object.keys(fldAgg).filter(k=>k.split('|').length===lv).sort((a,b)=>{ const x=a.split('|'),y=b.split('|'); return SUBJS.indexOf(x[0])-SUBJS.indexOf(y[0])||ordF(x[0],x[1])-ordF(y[0],y[1])||(lv===3?ordA(x[0],x[1],x[2])-ordA(y[0],y[1],y[2]):0); })
+    .map(k=>{ const p=k.split('|'), v=fldAgg[k], o={subject:p[0],field:p[1]}; if(lv===3) o.area=p[2]; return Object.assign(o,{correct:v.c,total:v.t,accuracyPercent:rate(v.c,v.t)}); });
+  const ids=Object.keys(att).sort((a,b)=>Q.indexOf(byId[a])-Q.indexOf(byId[b]));
+  const questions=ids.map(id=>{ const q=byId[id], A=att[id], c=A.filter(x=>x.result==='정답').length;
+    return {questionId:id,source:src(id),subject:q.subj,field:q.field,area:q.area,stem:q.stem,
+      options:q.opts.map((t,i)=>({no:i+1,text:t})),correctAnswer:N(q.ans),correctAnswerText:q.opts[q.ans],
+      attemptCount:A.length,correctCount:c,wrongCount:A.length-c,lastResult:A[A.length-1].result,attempts:A}; });
+  const notes=[
+    '문제 하나당 소요 시간은 저장되지 않습니다. 교시(회차) 전체 사용 시간(usedSeconds)만 있습니다.',
+    '문제 하나당 푼 시각은 저장되지 않습니다. 교시를 제출한 일시(submittedAt)만 있으며, 시험 시작 시각도 저장되지 않습니다.',
+    '답을 바꾼 이력은 저장되지 않습니다. 제출 시점의 최종 답(chosen)만 있습니다.',
+    '과목별 퀴즈 결과는 저장하지 않는 기능이라 포함되지 않습니다.',
+    '아직 제출하지 않은 시험은 포함되지 않습니다.',
+    '이 파일에는 '+kind+' 기록만 있습니다. 같은 문제를 '+(kind==='국가고시'?'모의시험':'국가고시')+'에서도 풀었다면 그 기록은 다른 파일에 있습니다.'
+  ];
+  if(partial) notes.push('출제 목록이 저장되기 전의 옛 회차 '+partial+'개(questionListSaved=false)는 틀린 문제와 과목별 점수만 남아 있습니다. 그 회차에서 맞힌 문제의 풀이 이력과 분야·영역 정답률은 빠져 있습니다.');
+  const sc=SUBJS.filter(s=>subjAgg[s]);
+  return {
+    title:'물리치료사 국가시험 기출 사이트 학습 기록 (AI 분석용) · '+kind,
+    exportedAt:nowIso(), recordType:kind, formatVersion:1,
+    fieldGuide:{
+      'chosen / correctAnswer':'선지 번호 1~5 (①~⑤). chosen이 null이면 미응답',
+      result:'정답 / 오답 / 미응답', markedForReview:'시험 중 "다시 확인" 표시 여부',
+      accuracyPercent:'정답률(%), 소수 첫째 자리', usedSeconds:'교시 사용 시간(초, 잠시 멈춤 시간 제외)',
+      autoSubmittedByTimeout:'시간이 다 되어 자동 제출됐는지', subject:'과목', field:'분야', area:'영역(세부 단원)',
+      attempts:'그 문제를 푼 회차별 기록(오래된 순)', sessionOrder:'이 파일 안에서의 회차 순서',
+      examRound:'국가고시 회차(모의시험은 null)', source:'기출 출처(회·교시·번호)'
+    },
+    notIncluded:notes,
+    summary:{questionBankTotal:Q.length,sessionsTaken:R.length,totalAnswerSlots:slots,answered:slots-unanswered,unanswered,
+      uniqueQuestionsSolved:ids.length,repeatedQuestions:questions.filter(x=>x.attemptCount>1).length,
+      correct:R.reduce((s,r)=>s+r.correct,0),accuracyPercent:rate(R.reduce((s,r)=>s+r.correct,0),slots),
+      firstSubmittedAt:R.length?R[0].at:null,lastSubmittedAt:R.length?R[R.length-1].at:null},
+    accuracy:{bySubject:sc.map(s=>({subject:s,correct:subjAgg[s].c,total:subjAgg[s].t,accuracyPercent:rate(subjAgg[s].c,subjAgg[s].t)})),
+      byField:byLevel(2), byArea:byLevel(3)},
+    sessions, questions
+  };
+}
+function downloadAiExport(){
+  if(viewing) return;
+  if(!RS().length){ toast((recTab==='real'?'국가고시':'모의시험')+' 기록이 아직 없습니다.'); return; }
+  const d=buildAiExport(), blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a'), url=URL.createObjectURL(blob);
+  a.href=url; a.download='학습기록_AI분석용_'+(recTab==='real'?'국가고시':'모의시험')+'_'+ymd(new Date())+'.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+  toast('학습 기록 파일을 내려받았습니다.');
+}
+
 function showRecords(){
   show('s-rec'); recView='main'; preloadExpl();
   $('rec-title').textContent=viewing?('학생 '+viewing+' 기록 · 읽기 전용'):('기록 · '+sid);
   const b=$('rec-btns'); b.innerHTML='';
   const add=(t,cls,fn)=>{const x=document.createElement('button'); x.textContent=t; if(cls) x.className=cls; x.onclick=fn; b.appendChild(x);};
-  add('문제 확인','warn',()=>{recView='wrong';wSel=null;wrongMode='all';cellState=null;renderRecords();}); add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
+  add('문제 확인','warn',()=>{recView='wrong';wSel=null;wrongMode='all';cellState=null;renderRecords();}); if(!viewing){ add(dlLabel(),'sec',downloadAiExport); b.lastChild.id='rec-dl'; }
+  add(viewing?'관리자 화면으로':'홈','sec',viewing?exitView:showHome);
   renderRecords();
 }
 function tabsHtml(){ return '<div class="chips"><button data-rt="mock" class="'+(recTab==='mock'?'on':'')+'">모의시험</button><button data-rt="real" class="'+(recTab==='real'?'on':'')+'">국가고시</button></div>'; }
 function renderRecords(){
-  const body=$('rec-body'); const R=RS();
+  const body=$('rec-body'); const R=RS(); if($('rec-dl')) $('rec-dl').textContent=dlLabel();
   if(recView==='wrong') return renderWrong();
   const agg={}; ['기초','진단평가','중재','법규'].forEach(s=>agg[s]={c:0,t:0});
   R.forEach(r=>Object.keys(r.subj).forEach(s=>{agg[s].c+=r.subj[s].c; agg[s].t+=r.subj[s].t;}));
